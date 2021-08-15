@@ -26,6 +26,7 @@ assign(const vm_register&   rhs) noexcept
       case(kind::call     ): new(&m_data) vm_call(rhs.m_data.cal);break;
       case(kind::operation): new(&m_data) vm_operation(rhs.m_data.op);break;
       case(kind::load     ): new(&m_data) vm_load(rhs.m_data.ld);break;
+      case(kind::address  ): new(&m_data) vm_address_operation(rhs.m_data.addr);break;
         }
     }
 
@@ -51,6 +52,7 @@ assign(vm_register&&  rhs) noexcept
       case(kind::call     ): new(&m_data) vm_call(std::move(rhs.m_data.cal));break;
       case(kind::operation): new(&m_data) vm_operation(std::move(rhs.m_data.op));break;
       case(kind::load     ): new(&m_data) vm_load(std::move(rhs.m_data.ld));break;
+      case(kind::address  ): new(&m_data) vm_address_operation(std::move(rhs.m_data.addr));break;
         }
     }
 
@@ -129,6 +131,24 @@ assign(vm_type_info  ti, std::u16string_view  lb, vm_load&&  ld) noexcept
 }
 
 
+vm_register&
+vm_register::
+assign(vm_type_info  ti, std::u16string_view  lb, vm_address_operation&&  addr) noexcept
+{
+  clear();
+
+  m_kind = kind::address;
+
+  m_type_info = ti;
+
+  m_label = lb;
+
+  new(&m_data) vm_address_operation(std::move(addr));
+
+  return *this;
+}
+
+
 
 
 void
@@ -140,6 +160,7 @@ clear() noexcept
   case(kind::call): std::destroy_at(&m_data.cal);break;
   case(kind::operation): std::destroy_at(&m_data.op);break;
   case(kind::load): std::destroy_at(&m_data.ld);break;
+  case(kind::address): std::destroy_at(&m_data.addr);break;
     }
 
 
@@ -166,6 +187,7 @@ print() const noexcept
   case(kind::call): m_data.cal.print();break;
   case(kind::operation): m_data.op.print();break;
   case(kind::load): m_data.ld.print();break;
+  case(kind::address): m_data.addr.print();break;
   case(kind::null): printf("allo");break;
     }
 }

@@ -34,25 +34,9 @@ vm_type_info
   int  m_letter;
   int  m_size;
 
-  vm_type_info*  m_base_type_info=nullptr;
-
-  constexpr vm_type_info(vm_type_info*  p) noexcept: m_letter('p'), m_size(8), m_base_type_info(p){}
-
 public:
   constexpr vm_type_info(int  l='n', int  sz=0) noexcept: m_letter(l), m_size(sz){}
 
-  ~vm_type_info(){clear();}
-
-  void  clear() noexcept;
-
-  vm_type_info(const vm_type_info&   rhs) noexcept{assign(rhs);}
-  vm_type_info(      vm_type_info&&  rhs) noexcept{assign(std::move(rhs));}
-
-  vm_type_info&  operator=(const vm_type_info&   rhs) noexcept{return assign(rhs);}
-  vm_type_info&  operator=(      vm_type_info&&  rhs) noexcept{return assign(std::move(rhs));}
-
-  vm_type_info&  assign(const vm_type_info&   rhs) noexcept;
-  vm_type_info&  assign(      vm_type_info&&  rhs) noexcept;
   vm_type_info&  assign(int  l='n', int  sz=0) noexcept;
 
   constexpr bool  is_undefined()        const noexcept{return m_letter == 'n';}
@@ -61,14 +45,9 @@ public:
   constexpr bool  is_unsigned_integer() const noexcept{return m_letter == 'u';}
   constexpr bool  is_floating()         const noexcept{return m_letter == 'f';}
   constexpr bool  is_object()           const noexcept{return m_letter == 'o';}
-  constexpr bool  is_pointer()          const noexcept{return m_letter == 'p';}
-
-  const vm_type_info&  base_type_info() const noexcept{return *m_base_type_info;}
 
   constexpr int      size() const noexcept{return m_size;}
   constexpr int  max_size() const noexcept{return gbcc::max_size(m_size);}
-
-  vm_type_info  make_pointer() const noexcept{return vm_type_info(new vm_type_info(*this));}
 
   void  print() const noexcept;
 
@@ -514,6 +493,22 @@ public:
 
 
 class
+vm_address_operation
+{
+  std::u16string  m_label;
+
+public:
+  vm_address_operation() noexcept{}
+  vm_address_operation(std::u16string_view  lb) noexcept: m_label(lb){}
+
+  const std::u16string&  label() const noexcept{return m_label;}
+
+  void  print() const noexcept;
+
+};
+
+
+class
 vm_branch
 {
   std::u16string  m_label;
@@ -573,6 +568,7 @@ vm_register
     call,
     operation,
     load,
+    address,
 
   } m_kind=kind::null;
 
@@ -580,6 +576,7 @@ vm_register
     vm_operation  op;
     vm_call      cal;
     vm_load       ld;
+    vm_address_operation  addr;
 
     data() noexcept{}
    ~data(){}
@@ -607,6 +604,7 @@ public:
   vm_register&  assign(vm_type_info  ti, std::u16string_view  lb, vm_call&&  cal) noexcept;
   vm_register&  assign(vm_type_info  ti, std::u16string_view  lb, vm_load&&  ld) noexcept;
   vm_register&  assign(vm_type_info  ti, std::u16string_view  lb, vm_operation&&  op) noexcept;
+  vm_register&  assign(vm_type_info  ti, std::u16string_view  lb, vm_address_operation&&  addr) noexcept;
 
   vm_type_info  type_info() const noexcept{return m_type_info;}
 
@@ -615,9 +613,11 @@ public:
   bool  is_call() const noexcept{return m_kind == kind::call;}
   bool  is_load() const noexcept{return m_kind == kind::load;}
   bool  is_operation() const noexcept{return m_kind == kind::operation;}
+  bool  is_address_operation() const noexcept{return m_kind == kind::address;}
   bool  is_allocate() const noexcept{return m_kind == kind::null;}
 
-  const vm_operation  operation() const noexcept{return m_data.op;}
+  const vm_operation&          operation() const noexcept{return m_data.op;}
+  const vm_address_operation&  address_operation() const noexcept{return m_data.addr;}
   const vm_call&           call() const noexcept{return m_data.cal;}
   const vm_load&           load() const noexcept{return m_data.ld;}
 
@@ -697,24 +697,29 @@ public:
 };
 
 
+using vm_line_list = std::vector<vm_line>;
+
+
 class
 vm_block
 {
   std::u16string_view  m_label;
 
-  std::vector<vm_line>  m_lines;
+  vm_line_list  m_line_list;
 
 public:
-  vm_block(std::u16string_view  lb) noexcept: m_label(lb){}
+  vm_block() noexcept{}
+  vm_block(std::u16string_view  lb, vm_line_list&&  ls) noexcept: m_label(lb), m_line_list(std::move(ls)){}
 
   std::u16string_view  label() const noexcept{return m_label;}
 
-        std::vector<vm_line>&  lines()       noexcept{return m_lines;}
-  const std::vector<vm_line>&  lines() const noexcept{return m_lines;}
+        vm_line_list&  line_list()       noexcept{return m_line_list;}
+  const vm_line_list&  line_list() const noexcept{return m_line_list;}
 
 };
 
 
+using vm_block_list = std::vector<vm_block>;
 
 
 class
@@ -761,37 +766,40 @@ vm_function
 
   std::u16string  m_label;
 
-  std::vector<vm_block>  m_block_array;
+  vm_block_list  m_block_list;
 
   vm_symbol_table  m_symbol_table;
 
   size_t  m_argument_size=0;
   size_t  m_stack_allocation_size=0;
 
-  vm_operation   construct_unary_operation(const syntax_branch&  br) noexcept;
-  vm_operation  construct_binary_operation(const syntax_branch&  br) noexcept;
+  static vm_operation   construct_unary_operation(const syntax_branch&  br) noexcept;
+  static vm_operation  construct_binary_operation(const syntax_branch&  br) noexcept;
 
-  vm_opcode   construct_unary_opcode(const syntax_branch&  br) noexcept;
-  vm_opcode  construct_binary_opcode(const syntax_branch&  br) noexcept;
+  static vm_address_operation  construct_address_operation(const syntax_branch&  br) noexcept;
 
-  void  construct_address_operation(const syntax_branch&  br) noexcept;
+  static vm_opcode   construct_unary_opcode(const syntax_branch&  br) noexcept;
+  static vm_opcode  construct_binary_opcode(const syntax_branch&  br) noexcept;
 
-  vm_load  construct_load(const syntax_branch&  br) noexcept;
+  static vm_load  construct_load(const syntax_branch&  br) noexcept;
 
-  vm_register  construct_operations(const syntax_branch&  br, vm_type_info  ti, std::u16string_view  lb) noexcept;
+  static vm_register  construct_operations(const syntax_branch&  br, vm_type_info  ti, std::u16string_view  lb) noexcept;
 
-  vm_register  construct_register(const syntax_branch&  br) noexcept;
-  vm_return    construct_return(const syntax_branch&  br) noexcept;
-  vm_branch    construct_branch(const syntax_branch&  br) noexcept;
-  vm_store     construct_store(const syntax_branch&  br) noexcept;
+  static vm_register  construct_register(const syntax_branch&  br) noexcept;
+  static vm_return    construct_return(const syntax_branch&  br) noexcept;
+  static vm_branch    construct_branch(const syntax_branch&  br) noexcept;
+  static vm_jump      construct_jump(const syntax_branch&  br) noexcept;
+  static vm_store     construct_store(const syntax_branch&  br) noexcept;
 
-  vm_call  construct_call(const syntax_branch&  br) noexcept;
+  static vm_call  construct_call(const syntax_branch&  br) noexcept;
 
-  vm_operand_list  construct_operand_list(const syntax_branch&  br) noexcept;
+  static vm_operand_list  construct_operand_list(const syntax_branch&  br) noexcept;
 
-  void  construct_label_statement(const syntax_branch&  br) noexcept;
-  void  construct_statement(const syntax_branch&  br) noexcept;
-  void  construct_statement_list(const syntax_branch&  br) noexcept;
+  static vm_line       construct_statement(const syntax_branch&  br) noexcept;
+  static vm_line_list  construct_statement_list(const syntax_branch&  br) noexcept;
+
+  static vm_block       construct_block(const syntax_branch&  br) noexcept;
+  static vm_block_list  construct_block_list(const syntax_branch&  br) noexcept;
 
   static vm_type_info       construct_type_info(const syntax_branch&  br) noexcept;
   static vm_operand         construct_operand(const syntax_branch&  br) noexcept;
@@ -811,21 +819,16 @@ public:
 
   std::u16string_view  name() const noexcept{return m_name;}
 
-  const std::vector<vm_block>&  block_array() const noexcept{return m_block_array;}
+  const vm_block_list&  block_list() const noexcept{return m_block_list;}
 
   const vm_symbol_table&  symbol_table() const noexcept{return m_symbol_table;}
 
   size_t          argument_size() const noexcept{return m_argument_size;}
   size_t  stack_allocation_size() const noexcept{return m_stack_allocation_size;}
 
-  vm_line&  last_line() noexcept{return m_block_array.back().lines().back();}
-
-  vm_line&    add_line(vm_line&&  ln) noexcept;
-  vm_block&  add_block(std::u16string_view  lb) noexcept;
-
   int  finalize(int  pos) noexcept;
 
-  int  entry_position() const noexcept{return m_block_array.front().lines().front().position();}
+  int  entry_position() const noexcept{return m_block_list.front().line_list().front().position();}
 
   void  print() const noexcept;
 
@@ -889,6 +892,7 @@ vm_execution
 
   vm_value  process(const vm_load&  ld) noexcept;
   vm_value  process(const vm_operation&  op) noexcept;
+  vm_value  process(const vm_address_operation&  addr) noexcept;
 
   void  jump(std::u16string_view  dst);
 

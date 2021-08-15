@@ -373,6 +373,16 @@ print() const noexcept
 
 
 void
+vm_address_operation::
+print() const noexcept
+{
+  printf("addr ");
+
+  gbcc::print(m_label);
+}
+
+
+void
 vm_branch::
 print() const noexcept
 {

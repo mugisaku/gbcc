@@ -32,8 +32,10 @@ set(SOURCES
   vms/vm_register.cpp
   vms/vm_line.cpp
   vms/vm_function.cpp
+  vms/vm_function__construct.cpp
   vms/vm_jobfield.cpp
   vms/vm_execution.cpp
+  vms/vm_execution__process.cpp
 )
 
 
