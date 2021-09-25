@@ -66,6 +66,7 @@ std::u16string  make_u16string(std::string_view  sv) noexcept;
 std::string  make_string_from_file(std::string_view  path) noexcept;
 
 void  print(std::u16string_view  sv) noexcept;
+void  print_indent(int  n) noexcept;
 
 
 class

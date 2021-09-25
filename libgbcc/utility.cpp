@@ -311,6 +311,16 @@ print(std::u16string_view  sv) noexcept
 }
 
 
+void
+print_indent(int  n) noexcept
+{
+    while(n--)
+    {
+      printf("  ");
+    }
+}
+
+
 
 
 }

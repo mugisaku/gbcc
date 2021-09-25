@@ -14,10 +14,16 @@ assign(const syntax_branch_element&  rhs) noexcept
 {
     if(this != &rhs)
     {
-      m_token  = rhs.m_token;
-      m_branch = rhs.m_branch;
+      clear();
 
-      m_keyword_flag = rhs.m_keyword_flag;
+      m_kind  = rhs.m_kind ;
+      m_token = rhs.m_token;
+
+        switch(m_kind)
+        {
+      case(kind::string): new(&m_data) std::u16string(rhs.m_data.str);break;
+      case(kind::branch): new(&m_data)  syntax_branch(rhs.m_data.br );break;
+        }
     }
 
 
@@ -31,10 +37,16 @@ assign(syntax_branch_element&&  rhs) noexcept
 {
     if(this != &rhs)
     {
-      std::swap(m_token ,rhs.m_token );
-      std::swap(m_branch,rhs.m_branch);
+      clear();
 
-      std::swap(m_keyword_flag,rhs.m_keyword_flag);
+      std::swap(m_kind ,rhs.m_kind );
+      std::swap(m_token,rhs.m_token);
+
+        switch(m_kind)
+        {
+      case(kind::string): new(&m_data) std::u16string(std::move(rhs.m_data.str));break;
+      case(kind::branch): new(&m_data)  syntax_branch(std::move(rhs.m_data.br ));break;
+        }
     }
 
 
@@ -46,9 +58,27 @@ syntax_branch_element&
 syntax_branch_element::
 assign(const syntax_token&  tok, bool  k) noexcept
 {
+  clear();
+
   m_token = &tok;
 
-  m_keyword_flag = k && tok.is_identifier();
+  m_kind = k? kind::keyword:kind::token;
+
+  return *this;
+}
+
+
+syntax_branch_element&
+syntax_branch_element::
+assign(const syntax_token&  tok, std::u16string_view  sv) noexcept
+{
+  clear();
+
+  m_token = &tok;
+
+  m_kind = kind::string;
+
+  new(&m_data) std::u16string(sv);
 
   return *this;
 }
@@ -58,16 +88,33 @@ syntax_branch_element&
 syntax_branch_element::
 assign(syntax_branch&&  bra) noexcept
 {
-  m_token = nullptr;
+  clear();
 
-  m_branch = std::move(bra);
+  m_kind = kind::branch;
 
-  m_keyword_flag = false;
+  new(&m_data) syntax_branch(std::move(bra));
 
   return *this;
 }
 
 
+
+
+void
+syntax_branch_element::
+clear() noexcept
+{
+    switch(m_kind)
+    {
+  case(kind::string): std::destroy_at(&m_data.str);break;
+  case(kind::branch): std::destroy_at(&m_data.br );break;
+    }
+
+
+  m_kind = kind::null;
+
+  m_token = nullptr;
+}
 
 
 void
@@ -94,8 +141,15 @@ print(int  indent) const noexcept
     }
 
   else
+    if(is_branch())
     {
-      m_branch.print(indent+1);
+      m_data.br.print(indent+1);
+    }
+
+  else
+    if(is_string())
+    {
+      gbcc::print(m_data.str);
     }
 }
 

@@ -1,0 +1,98 @@
+#から行末までがコメントとなる
+#以下は予約された定義名
+#identifier　　　識別子
+#integer_literal　整数リテラル
+#floting_literal　浮動小数点数リテラル
+#string_literal　文字列リテラル
+
+
+
+
+composited_type_member = type_expression : identifier;
+
+composited_type_member_list = "{" & [{composited_type_member & ";"}] &"}";
+
+struct_definition = "struct" : composited_type_member_list;
+union_definition  =  "union" : composited_type_member_list;
+
+enumerator = identifier & "=" & expression;
+enumerator_list = "{" & [{enumerator & ","}] &"}";
+enum_definition = "enum" : enumerator_list;
+
+type_expression = identifier & [{"*" | index}] & ["&"];
+
+explicit_type_expression = <type> : type_expression;
+
+
+
+function_declaration = <function>
+ : identifier
+ & type_expression
+ & parameter_list
+ & block_statement
+ ;
+
+
+
+statement = return_statement
+          | for_statement
+          | while_statement
+          | if_statement
+          | switch_statement
+          | case_statement
+          | default_statement
+          | goto_statement
+          | label_statement
+          | break_statement
+          | continue_statement
+          | block_statement
+          | var_statement
+          | const_statement
+          | expression
+          | ";"
+          ;
+
+
+
+
+return_statement = <return> : [expression] & ";";
+
+case_statement = <case> : expression & ":";
+default_statement = <default> : ":";
+
+for_header_content = [expression] & ";"
+                   & [expression] & ";"
+                   & [expression];
+
+for_statement = <for> : "(" : for_header_content & ")" & block_statement;
+
+while_statement = <while> : expression & block_statement;
+
+if_statement = <if> : expression & block_statement & [{else_if_statement}] & [else_statement];
+else_if_statement = <else> & <if> : expression & block_statement;
+else_statement = <else> & block_statement;
+
+case_statement = <case> : expression & ":";
+
+switch_statement = <switch> & expression & "{" & "}";
+
+goto_statement = <goto> & identifier;
+
+label_statement = identifier & ":";
+
+break_statement = <break> & ";";
+
+continue_statement = <continue> & ";";
+
+block_statement = "{" & [{statement}] & "}";
+
+var_statement   = <var>   : identifier & "=" & type_expression & ["(" & expression & ")"] & ";";
+const_statement = <const> : identifier & "=" & type_expression & ["(" & expression & ")"] & ";";
+
+parameter_list = "(" : [parameter & [{"," & parameter}]] : ")";
+
+parameter = [identifier & "="] & type_expression;
+
+
+
+

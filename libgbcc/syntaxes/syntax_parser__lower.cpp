@@ -54,7 +54,7 @@ process_string(const syntax_element&  e, syntax_token_string::iterator  it)
         }
 
 
-      return result(it,syntax_branch_element(tok,false));
+      return result(it,syntax_branch_element(tok,std::u16string_view(s)));
     }
 
 

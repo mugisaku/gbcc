@@ -516,14 +516,26 @@ syntax_branch_element
 {
   const syntax_token*  m_token=nullptr;
 
-  syntax_branch  m_branch;
+  enum class kind{
+    null, token, string, branch, keyword,
 
-  bool  m_keyword_flag=false;
+  } m_kind=kind::null;
+
+
+  union data{
+    std::u16string  str;
+    syntax_branch    br;
+
+  data() noexcept{}
+ ~data(){}
+
+  } m_data;
 
 public:
   syntax_branch_element() noexcept{}
   syntax_branch_element(const syntax_branch_element&   rhs) noexcept{assign(rhs);}
   syntax_branch_element(      syntax_branch_element&&  rhs) noexcept{assign(std::move(rhs));}
+ ~syntax_branch_element(){clear();}
 
   template<class...  Args>
   syntax_branch_element(Args&&...  args) noexcept{assign(std::forward<Args>(args)...);}
@@ -538,21 +550,25 @@ public:
   syntax_branch_element&  assign(      syntax_branch_element&&  rhs) noexcept;
 
   syntax_branch_element&  assign(const syntax_token&  tok, bool  k=false) noexcept;
+  syntax_branch_element&  assign(const syntax_token&  tok, std::u16string_view  sv) noexcept;
   syntax_branch_element&  assign(syntax_branch&&  bra) noexcept;
 
-  bool  is_keyword(                       ) const noexcept{return m_keyword_flag;}
+  void  clear() noexcept;
+
+  bool  is_keyword(                       ) const noexcept{return m_kind == kind::keyword;}
   bool  is_keyword(std::u16string_view  sv) const noexcept{return is_keyword() && (m_token->string() == sv);}
 
-  bool  is_token()  const noexcept{return  m_token;}
-  bool  is_branch() const noexcept{return !m_token;}
-  bool  is_branch(std::u16string_view  name) const noexcept{return is_branch() && (m_branch.name() == name);}
+  bool  is_token()   const noexcept{return m_kind == kind::token;}
+  bool  is_string()  const noexcept{return m_kind == kind::string;}
+  bool  is_branch()  const noexcept{return m_kind == kind::branch;}
+  bool  is_branch(std::u16string_view  name) const noexcept{return is_branch() && (m_data.br.name() == name);}
 
   const syntax_token&    token() const noexcept{return *m_token;}
-  const syntax_branch&  branch() const noexcept{return m_branch;}
+  const syntax_branch&  branch() const noexcept{return m_data.br;}
 
-  uint64_t            integer() const noexcept{return m_token->integer();}
-  double             floating() const noexcept{return m_token->floating();}
-  std::u16string_view  string() const noexcept{return m_token->string();}
+  uint64_t              integer() const noexcept{return m_token->integer();}
+  double               floating() const noexcept{return m_token->floating();}
+  const std::u16string&  string() const noexcept{return is_string()? m_data.str:m_token->string();}
 
   void  print(int  indent) const noexcept;
 
@@ -631,7 +647,7 @@ public:
 
   const syntax_rule*  rule() const noexcept{return m_rule;}
 
-  syntax_branch  start(const syntax_token_string&  toks);
+  syntax_branch  start(const syntax_token_string&  toks, std::u16string_view  entry);
 
 };
 

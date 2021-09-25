@@ -15,15 +15,28 @@ set(SOURCES
   syntaxes/syntax_branch_element.cpp
   syntaxes/syntax_parser.cpp
   syntaxes/syntax_parser__lower.cpp
-#  vms/typesystems/struct.cpp
-#  vms/typesystems/union.cpp
-#  vms/typesystems/enum.cpp
-#  vms/typesystems/type_info.cpp
-#  vms/typesystems/function_signature.cpp
-#  vms/expressions/expression.cpp
-#  vms/expressions/postfix_element.cpp
-#  vms/expressions/operand.cpp
-#  vms/expressions/simple_value.cpp
+  vms/expressions/sc_value.cpp
+  vms/expressions/sc_operand.cpp
+  vms/expressions/sc_unary_operation_prefix_element.cpp
+  vms/expressions/sc_unary_operation_postfix_element.cpp
+  vms/expressions/sc_unary_operation.cpp
+  vms/expressions/sc_unary_operation__operate.cpp
+  vms/expressions/sc_binary_operation.cpp
+  vms/expressions/sc_binary_operation__operate.cpp
+  vms/expressions/sc_expression.cpp
+  vms/expressions/sc_expression__assign.cpp
+  vms/expressions/sc_expression_element.cpp
+  vms/typesystems/sc_struct_definition.cpp
+  vms/typesystems/sc_union_definition.cpp
+  vms/typesystems/sc_enum_definition.cpp
+  vms/typesystems/sc_type_info.cpp
+  vms/typesystems/sc_signature.cpp
+  vms/contexts/sc_statement.cpp
+  vms/contexts/sc_block.cpp
+  vms/contexts/sc_function.cpp
+  vms/contexts/sc_context.cpp
+  vms/contexts/sc_context__construct.cpp
+  vms/contexts/sc_context__process.cpp
   vms/vm_type_info.cpp
   vms/vm_opcode.cpp
   vms/vm_value.cpp

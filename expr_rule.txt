@@ -1,0 +1,68 @@
+#から行末までがコメントとなる
+#以下は予約された定義名
+#identifier　　　識別子
+#integer_literal　整数リテラル
+#floting_literal　浮動小数点数リテラル
+#string_literal　文字列リテラル
+
+
+
+
+expression = unary_operation & [{binary_operator & unary_operation}];
+
+expression_in_parentheses = "(" & expression & ")";
+
+unary_operation = [{prefix_unary_operator}] & operand & [{postfix_unary_operator}];
+
+operand = identifier
+ | string_literal
+ | integer_literal
+ | floating_literal
+ | "true"
+ | "false"
+ | "nullptr"
+ | expression_in_parentheses
+ ;
+
+argument_list = "(" & [expression & [{"," & expression}]] & ")";
+
+access = "." : identifier;
+index  = "[" : expression & "]";
+
+postfix_unary_operator = argument_list | access | index | "++" | "--";
+
+prefix_unary_operator = "!" | "*" | "&" | "-" | "+" | "--" | "++" | "~";
+
+binary_operator = "<<="
+                | "<<"
+                | "<="
+                | "<"
+                | ">>="
+                | ">>"
+                | ">="
+                | ">"
+                | "=="
+                | "="
+                | "!="
+                | "+="
+                | "+"
+                | "-="
+                | "-"
+                | "*="
+                | "*"
+                | "/="
+                | "/"
+                | "&&"
+                | "&="
+                | "&"
+                | "||"
+                | "|="
+                | "|"
+                | "^="
+                | "^"
+                | ","
+                ;
+
+
+
+

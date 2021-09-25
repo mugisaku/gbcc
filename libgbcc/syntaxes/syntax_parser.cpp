@@ -273,7 +273,7 @@ set_rule(const syntax_rule&  r) noexcept
 
 syntax_branch
 syntax_parser::
-start(const syntax_token_string&  toks)
+start(const syntax_token_string&  toks, std::u16string_view  entry)
 {
     if(!m_rule || !*m_rule)
     {
@@ -283,7 +283,17 @@ start(const syntax_token_string&  toks)
     }
 
 
-  auto&  f = m_rule->first();
+  auto  f = m_rule->find(entry);
+
+    if(!f)
+    {
+      gbcc::print(entry);
+
+      printf("がない\n");
+
+      throw syntax_parse_error();
+    }
+
 
   syntax_branch  br;
 
@@ -296,7 +306,7 @@ start(const syntax_token_string&  toks)
 
         while(*it)
         {
-          auto  res = step(f,it);
+          auto  res = step(*f,it);
 
             if(res)
             {
