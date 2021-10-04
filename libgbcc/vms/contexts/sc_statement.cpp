@@ -325,6 +325,31 @@ clear() noexcept
 }
 
 
+namespace{
+void
+print_if(const sc_conditional_block_list&  ls, int  depth) noexcept
+{
+  auto      it = ls.begin();
+  auto  end_it = ls.end();
+
+  it++->print(depth);
+
+    while(it != end_it)
+    {
+      printf(" else ");
+
+        if(it->expression())
+        {
+          printf("if");
+        }
+
+
+      it++->print(depth);
+    }
+}
+}
+
+
 void
 sc_statement::
 print(int  depth) const noexcept
@@ -346,13 +371,9 @@ print(int  depth) const noexcept
   case(kind::switch_): printf("switch");  m_data.cblk.print(depth);break;
 
   case(kind::if_):
-      printf("if");
-        for(auto&  blk: m_data.cblkls)
-        {
-          printf("else");
+      printf("if ");
 
-          blk.print(depth);
-        }
+      print_if(m_data.cblkls,depth);
       break;
   case(kind::var):
       printf("var  ");

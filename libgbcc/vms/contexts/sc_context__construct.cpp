@@ -54,7 +54,32 @@ sc_if
 sc_context::
 construct_if(const syntax_branch&  br) noexcept
 {
-  return sc_if();
+  sc_conditional_block_list  ls;
+
+  ls.emplace_back(sc_expression(br[1].branch()),construct_block(br[2].branch()));
+
+  auto  end_it = br.end();
+
+    for(auto  it = br.begin()+3;  it != end_it;  ++it)
+    {
+        if(it->is_branch(u"else_if_statement"))
+        {
+          auto&  brbr = it->branch();
+
+          ls.emplace_back(sc_expression(brbr[2].branch()),construct_block(brbr[3].branch()));
+        }
+
+      else
+        if(it->is_branch(u"else_statement"))
+        {
+          auto&  brbr = it->branch();
+
+          ls.emplace_back(sc_expression(),construct_block(brbr[1].branch()));
+        }
+    }
+
+
+  return sc_if(std::move(ls));
 }
 
 

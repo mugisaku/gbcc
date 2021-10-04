@@ -1,4 +1,5 @@
 #include"libgbcc/vms/context.hpp"
+#include<cmath>
 
 
 
@@ -129,9 +130,9 @@ operate_sub() noexcept
 {
   auto  c = convert_values();
 
-  return (c == 'd')? sc_value(m_left.floating()        +m_right.floating()        )
-        :(c == 'u')? sc_value(m_left.unsigned_integer()+m_right.unsigned_integer())
-        :(c == 'i')? sc_value(m_left.integer()         +m_right.integer()         )
+  return (c == 'd')? sc_value(m_left.floating()        -m_right.floating()        )
+        :(c == 'u')? sc_value(m_left.unsigned_integer()-m_right.unsigned_integer())
+        :(c == 'i')? sc_value(m_left.integer()         -m_right.integer()         )
         :            sc_value(                                                    )
         ;
 }
@@ -143,9 +144,9 @@ operate_mul() noexcept
 {
   auto  c = convert_values();
 
-  return (c == 'd')? sc_value(m_left.floating()        +m_right.floating()        )
-        :(c == 'u')? sc_value(m_left.unsigned_integer()+m_right.unsigned_integer())
-        :(c == 'i')? sc_value(m_left.integer()         +m_right.integer()         )
+  return (c == 'd')? sc_value(m_left.floating()        *m_right.floating()        )
+        :(c == 'u')? sc_value(m_left.unsigned_integer()*m_right.unsigned_integer())
+        :(c == 'i')? sc_value(m_left.integer()         *m_right.integer()         )
         :            sc_value(                                                    )
         ;
 }
@@ -157,9 +158,9 @@ operate_div() noexcept
 {
   auto  c = convert_values();
 
-  return (c == 'd')? sc_value(m_left.floating()        +m_right.floating()        )
-        :(c == 'u')? sc_value(m_left.unsigned_integer()+m_right.unsigned_integer())
-        :(c == 'i')? sc_value(m_left.integer()         +m_right.integer()         )
+  return (c == 'd')? sc_value(m_left.floating()        /m_right.floating()        )
+        :(c == 'u')? sc_value(m_left.unsigned_integer()/m_right.unsigned_integer())
+        :(c == 'i')? sc_value(m_left.integer()         /m_right.integer()         )
         :            sc_value(                                                    )
         ;
 }
@@ -171,9 +172,9 @@ operate_rem() noexcept
 {
   auto  c = convert_values();
 
-  return (c == 'd')? sc_value(m_left.floating()        +m_right.floating()        )
-        :(c == 'u')? sc_value(m_left.unsigned_integer()+m_right.unsigned_integer())
-        :(c == 'i')? sc_value(m_left.integer()         +m_right.integer()         )
+  return (c == 'd')? sc_value(std::fmod(m_left.floating(),m_right.floating())     )
+        :(c == 'u')? sc_value(m_left.unsigned_integer()%m_right.unsigned_integer())
+        :(c == 'i')? sc_value(m_left.integer()         %m_right.integer()         )
         :            sc_value(                                                    )
         ;
 }
@@ -346,7 +347,7 @@ operate_assign(const sc_value&  l, sc_value&&  r, sc_context&  ctx) noexcept
 {
     if(l.type_info().is_reference())
     {
-      ctx.store(l.integer(),ctx.dereference(r));
+      ctx.store(l.integer(),remove_reference(l.type_info()),ctx.dereference(r));
     }
 
 

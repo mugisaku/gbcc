@@ -69,6 +69,27 @@ void
 sc_context::
 process_if(const sc_conditional_block_list&  cblkls) noexcept
 {
+    for(auto&  cblk: cblkls)
+    {
+      auto&  e = cblk.expression();
+
+        if(e)
+        {
+          auto  v = e.evaluate(*this);
+
+            if(v.integer())
+            {
+              process_block(cblk);
+              
+              break;
+            }
+        }
+
+      else
+        {
+          process_block(cblk);
+        }
+   }
 }
 
 
@@ -131,15 +152,7 @@ process_var(const sc_var&  v) noexcept
 
     if(sym && !sym->attribute().has_const())
     {
-      auto  val = v.expression().evaluate(*this)(sym->type_info());
-
-      int64_t  base = sym->attribute().has_temporary()?  m_frame_stack.back().m_memory_size
-                    : 0
-                    ;
-
-      auto  addr = base+sym->offset();
-
-      store(addr,val);
+      store(*sym,v.expression().evaluate(*this));
     }
 }
 

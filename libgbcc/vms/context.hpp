@@ -49,11 +49,15 @@ public:
 
   void  print(int  depth=0) const noexcept
   {
-    printf("(");
+      if(m_expression)
+      {
+        printf("(");
 
-    m_expression.print();
+        m_expression.print();
 
-    printf(")\n");
+        printf(")\n");
+      }
+
 
     sc_block::print(depth);
   }
@@ -584,7 +588,9 @@ public:
 
   sc_value  load(int64_t  address, const sc_type_info&  ti) noexcept;
 
-  void  store(int64_t  address, sc_value  v) noexcept;
+  void  store(std::u16string_view  var_name, sc_value  v) noexcept;
+  void  store(const sc_symbol&  sym, sc_value  v) noexcept;
+  void  store(int64_t  address, const sc_type_info&  ti, sc_value  v) noexcept;
 
   int  call(std::u16string_view  fn_name, const sc_expression_list&  args) noexcept;
   int  call(const sc_function&  fn, const sc_expression_list&  args) noexcept;

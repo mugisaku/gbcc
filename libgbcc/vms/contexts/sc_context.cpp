@@ -186,24 +186,51 @@ load(int64_t  address, const sc_type_info&  ti) noexcept
 }
 
 
+
+
 void
 sc_context::
-store(int64_t  address, sc_value  v) noexcept
+store(std::u16string_view  var_name, sc_value  v) noexcept
 {
-  auto&  ti = v.type_info();
+  auto  sym = find_symbol(var_name);
+
+    if(sym)
+    {
+      store(*sym,std::move(v));
+    }
+}
+
+
+void
+sc_context::
+store(const sc_symbol&  sym, sc_value  v) noexcept
+{
+  int64_t  base = sym.attribute().has_temporary()?  m_frame_stack.back().m_memory_size
+                 :0
+                 ;
+ 
+  store(base+sym.offset(),sym.type_info(),std::move(v));
+}
+
+
+void
+sc_context::
+store(int64_t  address, const sc_type_info&  ti, sc_value  v) noexcept
+{
+  auto&  vti = v.type_info();
 
   auto  a = accessor(address);
 
-       if(ti.is_int8()  || ti.is_bool8() ){a.i8()  = v.integer();}
-  else if(ti.is_int16() || ti.is_bool16()){a.i16() = v.integer();}
-  else if(ti.is_int32() || ti.is_bool32()){a.i32() = v.integer();}
-  else if(ti.is_int64() || ti.is_bool64()){a.i64() = v.integer();}
-  else if(ti.is_uint8()  || ti.is_char8() ){a.u8()  = v.unsigned_integer();}
-  else if(ti.is_uint16() || ti.is_char16()){a.u16() = v.unsigned_integer();}
-  else if(ti.is_uint32() || ti.is_char32()){a.u32() = v.unsigned_integer();}
-  else if(ti.is_uint64()                  ){a.u64() = v.unsigned_integer();}
-  else if(ti.is_float32()){a.f32() = v.floating();}
-  else if(ti.is_float64()){a.f64() = v.floating();}
+       if(vti.is_int8()  || vti.is_bool8() ){a.i8()  = v.integer();}
+  else if(vti.is_int16() || vti.is_bool16()){a.i16() = v.integer();}
+  else if(vti.is_int32() || vti.is_bool32()){a.i32() = v.integer();}
+  else if(vti.is_int64() || vti.is_bool64()){a.i64() = v.integer();}
+  else if(vti.is_uint8()  || vti.is_char8() ){a.u8()  = v.unsigned_integer();}
+  else if(vti.is_uint16() || vti.is_char16()){a.u16() = v.unsigned_integer();}
+  else if(vti.is_uint32() || vti.is_char32()){a.u32() = v.unsigned_integer();}
+  else if(vti.is_uint64()                  ){a.u64() = v.unsigned_integer();}
+  else if(vti.is_float32()){a.f32() = v.floating();}
+  else if(vti.is_float64()){a.f64() = v.floating();}
 }
 
 
@@ -231,6 +258,14 @@ call(const sc_function&  fn, const sc_expression_list&  args) noexcept
 {
   m_halt_flag = false;
 
+  std::vector<sc_value>  vals;
+
+    for(auto&  a: args)
+    {
+      vals.emplace_back(a.evaluate(*this));
+    }
+
+
   auto  n = m_frame_stack.size();
 
   auto  sz = m_memory.size();
@@ -246,6 +281,14 @@ call(const sc_function&  fn, const sc_expression_list&  args) noexcept
 
 
   m_memory.resize(sz);
+
+  auto  it = fn.signature().parameter_list().begin();
+
+    for(auto&&  v: vals)
+    {
+      store(it++->name(),std::move(v));
+    }
+
 
   return n;
 }
