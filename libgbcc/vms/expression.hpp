@@ -17,6 +17,7 @@ class sc_unary_operation;
 class sc_binary_operation;
 class sc_expression;
 class sc_context;
+class sc_value;
 
 using sc_expression_list = std::vector<sc_expression>;
 
@@ -126,7 +127,7 @@ class
 sc_operand
 {
   enum class kind{
-    null, identifier, integer, unsigned_integer, floating, expression,
+    null, identifier, integer, unsigned_integer, floating, expression, value
 
   } m_kind=kind::null;
 
@@ -138,6 +139,7 @@ sc_operand
     double    f;
 
     sc_expression*  e;
+    sc_value  v;
 
     data() noexcept{}
    ~data(){}
@@ -168,6 +170,8 @@ public:
   sc_operand&  assign(double  f) noexcept;
   sc_operand&  assign(std::u16string_view  sv) noexcept;
   sc_operand&  assign(sc_expression&&  e) noexcept;
+  sc_operand&  assign(const sc_value&   v) noexcept;
+  sc_operand&  assign(      sc_value&&  v) noexcept;
 
   void  clear() noexcept;
 
@@ -176,6 +180,7 @@ public:
   bool  is_unsigned_integer() const noexcept{return m_kind == kind::unsigned_integer;}
   bool  is_floating()         const noexcept{return m_kind == kind::floating;}
   bool  is_expression()       const noexcept{return m_kind == kind::expression;}
+  bool  is_value()            const noexcept{return m_kind == kind::value;}
 
   const std::u16string&  string() const noexcept{return m_data.s;}
 
@@ -184,6 +189,7 @@ public:
   double   floating() const noexcept{return m_data.f;}
 
   const sc_expression&  expression() const noexcept{return *m_data.e;}
+  const sc_value&            value() const noexcept{return  m_data.v;}
 
   sc_type_info  type_info(sc_context&  ctx) const noexcept;
 
@@ -215,6 +221,10 @@ private:
 
 public:
   sc_unary_operation() noexcept{}
+  sc_unary_operation(const sc_value&   v) noexcept: m_operand(v){}
+  sc_unary_operation(      sc_value&&  v) noexcept: m_operand(std::move(v)){}
+  sc_unary_operation(const sc_operand&   o) noexcept: m_operand(o){}
+  sc_unary_operation(      sc_operand&&  o) noexcept: m_operand(std::move(o)){}
   sc_unary_operation(prefix_element_list&&  prels, sc_operand&&  o, postfix_element_list&&  postls) noexcept{assign(std::move(prels),std::move(o),std::move(postls));}
 
   sc_unary_operation&  assign(prefix_element_list&&  prels, sc_operand&&  o, postfix_element_list&&  postls) noexcept;
@@ -427,6 +437,10 @@ public:
   sc_expression&  assign(      sc_expression&&  rhs) noexcept;
   sc_expression&  assign(sc_unary_operation&&   unop) noexcept;
   sc_expression&  assign(sc_binary_operation&&  binop) noexcept;
+  sc_expression&  assign(const sc_value&   v) noexcept;
+  sc_expression&  assign(      sc_value&&  v) noexcept;
+  sc_expression&  assign(const sc_operand&   o) noexcept;
+  sc_expression&  assign(      sc_operand&&  o) noexcept;
   sc_expression&  assign(const syntax_branch&  br) noexcept;
 
   void  clear() noexcept;

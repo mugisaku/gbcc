@@ -18,7 +18,15 @@ scan(const sc_block&  blk) noexcept
         {
           auto&  v = st.var();
 
-          push(v.type_info(),v.name());
+          push(v.type_info(),v.name(),sc_symbol_attribute().add_temporary());
+        }
+
+      else
+        if(st.is_const())
+        {
+          auto&  c = st.const_();
+
+          push(c.type_info(),c.name(),sc_symbol_attribute().add_temporary().add_const());
         }
     }
 }
@@ -26,9 +34,9 @@ scan(const sc_block&  blk) noexcept
 
 void
 sc_function::
-push(const sc_type_info&  ti, std::u16string_view  name) noexcept
+push(const sc_type_info&  ti, std::u16string_view  name, sc_symbol_attribute  attr) noexcept
 {
-  m_symbol_list.emplace_back(name,sc_type_info(ti),stack_size(),sc_symbol_attribute().add_temporary());
+  m_symbol_list.emplace_back(name,sc_type_info(ti),stack_size(),attr);
 }
 
 
@@ -40,7 +48,7 @@ update_symbol_list() noexcept
 
     for(auto&  p: m_signature.parameter_list())
     {
-      push(p.type_info(),p.name());
+      push(p.type_info(),p.name(),sc_symbol_attribute().add_temporary());
     }
 
 
@@ -63,6 +71,8 @@ print() const
   printf("function ");
 
   gbcc::print(m_name);
+
+  printf("\n");
 
   m_signature.print();
 

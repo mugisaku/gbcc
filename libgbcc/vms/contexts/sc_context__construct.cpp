@@ -38,7 +38,7 @@ sc_switch
 sc_context::
 construct_switch(const syntax_branch&  br) noexcept
 {
-  return sc_switch();
+  return sc_switch(sc_expression(br[1].branch()),construct_block(br[2].branch()));
 }
 
 

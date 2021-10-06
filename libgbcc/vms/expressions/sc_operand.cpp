@@ -25,6 +25,7 @@ assign(const sc_operand&   rhs) noexcept
       case(kind::unsigned_integer): m_data.u = rhs.m_data.u;break;
       case(kind::floating        ): m_data.f = rhs.m_data.f;break;
       case(kind::expression      ): m_data.e = new sc_expression(*rhs.m_data.e);break;
+      case(kind::value           ): new(&m_data) sc_value(rhs.m_data.v);break;
         }
     }
 
@@ -50,6 +51,7 @@ assign(sc_operand&&  rhs) noexcept
       case(kind::unsigned_integer): m_data.u = rhs.m_data.u;break;
       case(kind::floating        ): m_data.f = rhs.m_data.f;break;
       case(kind::expression      ): std::swap(m_data.e,rhs.m_data.e);break;
+      case(kind::value           ): new(&m_data) sc_value(std::move(rhs.m_data.v));break;
         }
     }
 
@@ -128,6 +130,34 @@ assign(sc_expression&&  e) noexcept
 }
 
 
+sc_operand&
+sc_operand::
+assign(const sc_value&  v) noexcept
+{
+  clear();
+
+  m_kind = kind::value;
+
+  new(&m_data) sc_value(v);
+
+  return *this;
+}
+
+
+sc_operand&
+sc_operand::
+assign(sc_value&&  v) noexcept
+{
+  clear();
+
+  m_kind = kind::value;
+
+  new(&m_data) sc_value(std::move(v));
+
+  return *this;
+}
+
+
 void
 sc_operand::
 clear() noexcept
@@ -136,6 +166,7 @@ clear() noexcept
     {
   case(kind::identifier): std::destroy_at(&m_data.s);break;
   case(kind::expression): std::destroy_at( m_data.e);break;
+  case(kind::value     ): std::destroy_at(&m_data.v);break;
     }
 
 
@@ -147,6 +178,12 @@ sc_type_info
 sc_operand::
 type_info(sc_context&  ctx) const noexcept
 {
+    if(is_value())
+    {
+      return m_data.v.type_info();
+    }
+
+
   auto  v = evaluate(ctx);
 
   return v.type_info();
@@ -164,6 +201,7 @@ evaluate(sc_context&  ctx) const noexcept
   case(kind::unsigned_integer): return sc_value(m_data.u);break;
   case(kind::floating        ): return sc_value(m_data.f);break;
   case(kind::expression      ): return m_data.e->evaluate(ctx);break;
+  case(kind::value           ): return m_data.v;break;
     }
 
 
@@ -185,6 +223,9 @@ print() const noexcept
       printf("(");
       m_data.e->print();
       printf(")");
+      break;
+  case(kind::value):
+      m_data.v.print();
       break;
     }
 }

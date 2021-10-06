@@ -41,11 +41,47 @@ operate(const sc_value&  v, const postfix_element&  e, sc_context&  ctx) noexcep
   else
     if(e.is_increment())
     {
+        if(!v.type_info().is_reference())
+        {
+          printf("cannot increase because value is not reference");
+        }
+
+      else
+        {
+          auto  deref_v = ctx.dereference(v);
+
+            if(deref_v.type_info().is_integer())
+            {
+              sc_binary_operation  bin(u"+=",sc_expression(sc_operand(v)),sc_expression(sc_operand(static_cast<int64_t>(1))));
+
+              bin.evaluate(ctx);
+
+              return deref_v;
+            }
+        }
     }
 
   else
     if(e.is_decrement())
     {
+        if(!v.type_info().is_reference())
+        {
+          printf("cannot decrease because value is not reference");
+        }
+
+      else
+        {
+          auto  deref_v = ctx.dereference(v);
+
+            if(deref_v.type_info().is_integer())
+            {
+              sc_binary_operation  bin(u"-=",sc_expression(sc_operand(v)),sc_expression(sc_operand(static_cast<int64_t>(1))));
+
+              bin.evaluate(ctx);
+
+              return deref_v;
+            }
+        }
     }
 
 
@@ -108,25 +144,20 @@ operate(const sc_value&  v, const prefix_element&   e, sc_context&  ctx) noexcep
     {
         if(!v.type_info().is_reference())
         {
-          return sc_value();
+          printf("cannot increase because value is not reference");
         }
 
+      else
+        {
+          auto  deref_v = ctx.dereference(v);
 
-      auto    ti = remove_reference(v.type_info());
-      auto  addr = v.integer();
+            if(deref_v.type_info().is_integer())
+            {
+              sc_binary_operation  bin(u"+=",sc_expression(sc_operand(v)),sc_expression(sc_operand(static_cast<int64_t>(1))));
 
-      auto  a = ctx.accessor(addr);
-
-           if(ti.is_int8() ){++a.i8();}
-      else if(ti.is_int16()){++a.i16();}
-      else if(ti.is_int32()){++a.i32();}
-      else if(ti.is_int64()){++a.i64();}
-      else if(ti.is_uint8() ){++a.u8();}
-      else if(ti.is_uint16()){++a.u16();}
-      else if(ti.is_uint32()){++a.u32();}
-      else if(ti.is_uint64()){++a.u64();}
-
-      return v;
+              return bin.evaluate(ctx);
+            }
+        }
     }
 
   else
@@ -134,7 +165,19 @@ operate(const sc_value&  v, const prefix_element&   e, sc_context&  ctx) noexcep
     {
         if(!v.type_info().is_reference())
         {
-          return sc_value();
+          printf("cannot decrease because value is not reference");
+        }
+
+      else
+        {
+          auto  deref_v = ctx.dereference(v);
+
+            if(deref_v.type_info().is_integer())
+            {
+              sc_binary_operation  bin(u"-=",sc_expression(sc_operand(v)),sc_expression(sc_operand(static_cast<int64_t>(1))));
+
+              return bin.evaluate(ctx);
+            }
         }
     }
 

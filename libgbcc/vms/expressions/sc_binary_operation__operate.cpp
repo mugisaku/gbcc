@@ -348,6 +348,8 @@ operate_assign(const sc_value&  l, sc_value&&  r, sc_context&  ctx) noexcept
     if(l.type_info().is_reference())
     {
       ctx.store(l.integer(),remove_reference(l.type_info()),ctx.dereference(r));
+
+      return l;
     }
 
 

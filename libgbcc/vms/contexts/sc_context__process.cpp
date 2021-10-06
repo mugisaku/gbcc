@@ -55,6 +55,9 @@ void
 sc_context::
 process_switch(const sc_conditional_block&  cblk) noexcept
 {
+  auto  v = cblk.expression().evaluate(*this);
+
+    
 }
 
 

@@ -380,6 +380,8 @@ print() const noexcept
 
     switch(m_kind)
     {
+  case(kind::void_): printf("void");break;
+  case(kind::null_pointer): printf("nullptr");break;
   case(kind::bool8): printf("bool8");break;
   case(kind::char8): printf("char8");break;
   case(kind::int8 ): printf("int8");break;

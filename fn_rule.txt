@@ -25,6 +25,9 @@ explicit_type_expression = <type> : type_expression;
 
 
 
+top_element = function_declaration | var_statement | const_statement;
+
+
 function_declaration = <function>
  : identifier
  & type_expression

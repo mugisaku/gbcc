@@ -84,6 +84,62 @@ assign(sc_binary_operation&&  binop) noexcept
 }
 
 
+sc_expression&
+sc_expression::
+assign(const sc_value&  v) noexcept
+{
+  clear();
+
+  m_kind = kind::unary;
+
+  m_data.unop = new sc_unary_operation(v);
+
+  return *this;
+}
+
+
+sc_expression&
+sc_expression::
+assign(sc_value&&  v) noexcept
+{
+  clear();
+
+  m_kind = kind::unary;
+
+  m_data.unop = new sc_unary_operation(std::move(v));
+
+  return *this;
+}
+
+
+sc_expression&
+sc_expression::
+assign(const sc_operand&  o) noexcept
+{
+  clear();
+
+  m_kind = kind::unary;
+
+  m_data.unop = new sc_unary_operation(o);
+
+  return *this;
+}
+
+
+sc_expression&
+sc_expression::
+assign(sc_operand&&  o) noexcept
+{
+  clear();
+
+  m_kind = kind::unary;
+
+  m_data.unop = new sc_unary_operation(std::move(o));
+
+  return *this;
+}
+
+
 void
 sc_expression::
 clear() noexcept

@@ -27,16 +27,56 @@ assign(const syntax_branch&  br) noexcept
 {
     for(auto&  e: br)
     {
-        if(e.is_branch(u"function_declaration"))
+        if(e.is_branch(u"top_element"))
         {
-          auto  n = m_function_list.size();
+            for(auto&  ee: e.branch())
+            {
+                if(ee.is_branch(u"function_declaration"))
+                {
+                  auto  n = m_function_list.size();
 
-          m_function_list.emplace_back(construct_function(e.branch())).set_entry_number(n);
+                  m_function_list.emplace_back(construct_function(ee.branch())).set_entry_number(n);
+                }
+
+              else
+                if(ee.is_branch(u"var_statement"))
+                {
+                  auto  v = construct_var(ee.branch());
+
+                  push(v.type_info(),v.name(),sc_symbol_attribute()).add_expression(std::move(v.expression()));
+                }
+
+              else
+                if(ee.is_branch(u"const_statement"))
+                {
+                  auto  c = construct_const(ee.branch());
+
+                  push(c.type_info(),c.name(),sc_symbol_attribute().add_const()).add_expression(std::move(c.expression()));
+                }
+            }
         }
     }
 
 
+  reset();
+
   return *this;
+}
+
+
+sc_symbol&
+sc_context::
+push(const sc_type_info&  ti, std::u16string_view  name, sc_symbol_attribute  attr) noexcept
+{
+  return m_symbol_list.emplace_back(name,sc_type_info(ti),stack_size(),attr);
+}
+
+
+int
+sc_context::
+stack_size() const noexcept
+{
+  return m_symbol_list.size()? m_symbol_list.back().next_offset():32;
 }
 
 
@@ -321,6 +361,23 @@ exit_from_block() noexcept
 
 void
 sc_context::
+reset() noexcept
+{
+  m_memory.resize(stack_size());
+
+  m_frame_stack.clear();
+
+    for(auto&  sym: m_symbol_list)
+    {
+      auto  v = sym.expression().evaluate(*this);
+
+      store(sym,std::move(v));
+    }
+}
+
+
+void
+sc_context::
 step() noexcept
 {
     if(m_frame_stack.size())
@@ -393,6 +450,18 @@ void
 sc_context::
 print() const noexcept
 {
+    for(auto&  sym: m_symbol_list)
+    {
+      printf("var  ");
+
+      sym.print();
+
+      printf("\n");
+    }
+
+
+  printf("\n\n");
+
     for(auto&  fn: m_function_list)
     {
       fn.print();

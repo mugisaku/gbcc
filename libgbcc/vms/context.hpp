@@ -186,6 +186,7 @@ public:
 
   const sc_type_info&  type_info() const noexcept{return m_type_info;}
 
+        sc_expression&  expression()       noexcept{return m_expression;}
   const sc_expression&  expression() const noexcept{return m_expression;}
 
 };
@@ -376,6 +377,8 @@ sc_symbol
 
   sc_symbol_attribute  m_attribute;
 
+  sc_expression  m_expression;
+
   static constexpr int  m_asize = sizeof(int64_t);
 
   static constexpr int64_t  aligned(int64_t  off) noexcept{return (off+(m_asize-1))/m_asize*m_asize;}
@@ -394,6 +397,10 @@ public:
 
   sc_symbol_attribute  attribute() const noexcept{return m_attribute;}
 
+  void  add_expression(sc_expression&&  e) noexcept{m_expression = std::move(e);}
+
+  const sc_expression&  expression() const noexcept{return m_expression;}
+
   void  print() const noexcept
   {
     gbcc::print(m_name);
@@ -402,7 +409,9 @@ public:
 
     m_type_info.print();
 
-    printf("(%6" PRIi64 ")",m_offset);
+    printf("(%6" PRIi64 ") ",m_offset);
+
+    m_expression.print();
   }
 
 };
@@ -428,7 +437,7 @@ sc_function
 
   void  scan(const sc_block&  blk) noexcept;
 
-  void  push(const sc_type_info&  ti, std::u16string_view  name) noexcept;
+  void  push(const sc_type_info&  ti, std::u16string_view  name, sc_symbol_attribute  attr) noexcept;
 
 public:
   sc_function() noexcept{}
@@ -566,6 +575,8 @@ sc_context
 
   void  exit_from_block() noexcept;
 
+  sc_symbol&  push(const sc_type_info&  ti, std::u16string_view  name, sc_symbol_attribute  attr) noexcept;
+
 public:
   sc_context() noexcept{}
 
@@ -573,6 +584,8 @@ public:
   sc_context&  operator=(const syntax_branch&  br) noexcept{return assign(br);}
 
   sc_context&  assign(const syntax_branch&  br) noexcept;
+
+  int  stack_size() const noexcept;
 
   const sc_function*  find_function(std::u16string_view  name) const noexcept;
   const sc_constant*  find_constant(std::u16string_view  name) const noexcept;
@@ -596,6 +609,7 @@ public:
   int  call(const sc_function&  fn, const sc_expression_list&  args) noexcept;
   int  call(int  entry_number, const sc_expression_list&  args) noexcept;
 
+  void  reset() noexcept;
   void  step() noexcept;
 
   sc_value  run(int  depth) noexcept;

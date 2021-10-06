@@ -31,7 +31,7 @@ index  = "[" : expression & "]";
 
 postfix_unary_operator = argument_list | access | index | "++" | "--";
 
-prefix_unary_operator = "!" | "*" | "&" | "-" | "+" | "--" | "++" | "~";
+prefix_unary_operator = "!" | "*" | "&" | "--" | "++" | "-" | "+" | "~";
 
 binary_operator = "<<="
                 | "<<"
