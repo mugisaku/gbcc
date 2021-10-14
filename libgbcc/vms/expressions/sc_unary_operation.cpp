@@ -23,11 +23,23 @@ assign(prefix_element_list&&  prels, sc_operand&&  o, postfix_element_list&&  po
 
 sc_type_info
 sc_unary_operation::
-type_info(sc_context&  ctx) const noexcept
+type_info(const sc_context&  ctx) const noexcept
 {
-  auto  v = evaluate(ctx);
+  auto  ti = m_operand.type_info(ctx);
 
-  return v.type_info();
+    for(auto&  e: m_postfix_elements)
+    {
+      ti = operate_type_info(ti,e);
+    }
+
+
+    for(auto&  e: m_prefix_elements)
+    {
+      ti = operate_type_info(ti,e);
+    }
+
+
+  return std::move(ti);
 }
 
 
@@ -35,17 +47,20 @@ sc_value
 sc_unary_operation::
 evaluate(sc_context&  ctx) const noexcept
 {
-  auto  v = m_operand.evaluate(ctx);
+  auto  ti = m_operand.type_info(ctx);
+  auto   v = m_operand.evaluate(ctx);
 
     for(auto&  e: m_postfix_elements)
     {
-      v = operate(v,e,ctx);
+      v  = operate_value(v,ti,e,ctx);
+      ti = operate_type_info(ti,e);
     }
 
 
     for(auto&  e: m_prefix_elements)
     {
-      v = operate(v,e,ctx);
+      v  = operate_value(v,ti,e,ctx);
+      ti = operate_type_info(ti,e);
     }
 
 

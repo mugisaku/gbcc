@@ -43,10 +43,10 @@ construct_operand(const syntax_branch&  br) noexcept
         {
           auto  i = tok.integer();
 
-            if(i <= INT64_MAX){return sc_operand(static_cast<int64_t>(i));}
-          else                {return sc_operand(                    (i));}
+            if(i <= INT64_MAX){return sc_operand(static_cast<int64_t>(i),sc_int64_ti);}
+          else                {return sc_operand(                    (i),sc_uint64_ti);}
         }
-      else if(tok.is_floating()  ){return sc_operand(tok.floating());}
+      else if(tok.is_floating()  ){return sc_operand(tok.floating(),sc_float64_ti);}
       else if(tok.is_identifier()){return sc_operand(std::u16string_view(tok.string()));}
     }
 

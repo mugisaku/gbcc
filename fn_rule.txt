@@ -89,8 +89,8 @@ continue_statement = <continue> & ";";
 
 block_statement = "{" & [{statement}] & "}";
 
-var_statement   = <var>   : identifier & "=" & type_expression & ["(" & expression & ")"] & ";";
-const_statement = <const> : identifier & "=" & type_expression & ["(" & expression & ")"] & ";";
+var_statement   = <var>   : identifier & "=" & type_expression & ["(" & [expression] & ")"] & ";";
+const_statement = <const> : identifier & "=" & type_expression & ["(" &  expression  & ")"] & ";";
 
 parameter_list = "(" : [parameter & [{"," & parameter}]] : ")";
 

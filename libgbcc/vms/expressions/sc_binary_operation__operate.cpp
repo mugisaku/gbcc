@@ -9,333 +9,342 @@ namespace gbcc{
 
 
 
-int
+void
 sc_binary_operation::functor::
 convert_values() noexcept
 {
-  auto&  lti = m_left.type_info();
-  auto&  rti = m_right.type_info();
+  auto&  lti = m_l_type_info;
+  auto&  rti = m_r_type_info;
+
+  auto&  lv = m_l_value;
+  auto&  rv = m_r_value;
 
     if(lti.is_floating())
     {
            if(rti.is_floating()        ){}
-      else if(rti.is_unsigned_integer()){m_right = sc_value(static_cast<double>(m_right.unsigned_integer()));}
-      else if(rti.is_integer()         ){m_right = sc_value(static_cast<double>(m_right.integer()         ));}
-      else{return 0;}
+      else if(rti.is_unsigned_integer()){rv = sc_value(static_cast<double>(rv.unsigned_integer()));}
+      else if(rti.is_integer()         ){rv = sc_value(static_cast<double>(rv.integer()         ));}
+      else{return;}
 
-      return 'd';
+
+      m_result_type_info = sc_float64_ti;
     }
 
   else
     if(rti.is_floating())
     {
-           if(lti.is_unsigned_integer()){m_left = sc_value(static_cast<double>(m_left.unsigned_integer()));}
-      else if(lti.is_integer()         ){m_left = sc_value(static_cast<double>(m_left.integer()         ));}
-      else{return 0;}
+           if(lti.is_unsigned_integer()){lv = sc_value(static_cast<double>(lv.unsigned_integer()));}
+      else if(lti.is_integer()         ){lv = sc_value(static_cast<double>(lv.integer()         ));}
+      else{return;}
 
-      return 'd';
+
+      m_result_type_info = sc_float64_ti;
     }
 
   else
     if(lti.is_unsigned_integer())
     {
            if(rti.is_unsigned_integer()){}
-      else if(rti.is_integer()         ){m_right = sc_value(static_cast<uint64_t>(m_right.integer()));}
-      else{return 0;}
+      else if(rti.is_integer()         ){rv = sc_value(static_cast<uint64_t>(rv.integer()));}
+      else{return;}
 
-      return 'u';
+
+      m_result_type_info = sc_uint64_ti;
     }
 
   else
     if(rti.is_unsigned_integer())
     {
-        if(lti.is_integer()){m_left = sc_value(static_cast<uint64_t>(m_left.integer()));}
-      else{return 0;}
+        if(lti.is_integer()){lv = sc_value(static_cast<uint64_t>(lv.integer()));}
+      else{return;}
 
-      return 'u';
+
+      m_result_type_info = sc_uint64_ti;
     }
 
   else
     if(lti.is_integer() && rti.is_integer())
     {
-      return 'i';
+      m_result_type_info = sc_int64_ti;
     }
-
-
-  return 0;
 }
 
 
 
 
-bool
-sc_binary_operation::functor::
-is_floating() const noexcept
-{
-  return m_left.type_info().is_floating() &&
-         m_right.type_info().is_floating()
-        ;
-}
-
-
-bool
-sc_binary_operation::functor::
-is_unsigned_integer() const noexcept
-{
-  return m_left.type_info().is_unsigned_integer() &&
-         m_right.type_info().is_unsigned_integer()
-        ;
-}
-
-
-bool
-sc_binary_operation::functor::
-is_integer() const noexcept
-{
-  return m_left.type_info().is_integer() &&
-         m_right.type_info().is_integer()
-        ;
-}
-
-
-bool
-sc_binary_operation::functor::
-is_pointer() const noexcept
-{
-  return m_left.type_info().is_pointer() &&
-         m_right.type_info().is_pointer()
-        ;
-}
-
-
-
-
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_add() noexcept
 {
-  auto  c = convert_values();
+  convert_values();
 
-  return (c == 'd')? sc_value(m_left.floating()        +m_right.floating()        )
-        :(c == 'u')? sc_value(m_left.unsigned_integer()+m_right.unsigned_integer())
-        :(c == 'i')? sc_value(m_left.integer()         +m_right.integer()         )
-        :            sc_value(                                                    )
-        ;
+  m_result_value = m_result_type_info.is_floating()?         sc_value(m_l_value.floating()        +m_r_value.floating()        )
+                  :m_result_type_info.is_unsigned_integer()? sc_value(m_l_value.unsigned_integer()+m_r_value.unsigned_integer())
+                  :m_result_type_info.is_integer()?          sc_value(m_l_value.integer()         +m_r_value.integer()         )
+                  :sc_value()
+                  ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_sub() noexcept
 {
-  auto  c = convert_values();
+  convert_values();
 
-  return (c == 'd')? sc_value(m_left.floating()        -m_right.floating()        )
-        :(c == 'u')? sc_value(m_left.unsigned_integer()-m_right.unsigned_integer())
-        :(c == 'i')? sc_value(m_left.integer()         -m_right.integer()         )
-        :            sc_value(                                                    )
-        ;
+  m_result_value = m_result_type_info.is_floating()?          sc_value(m_l_value.floating()        -m_r_value.floating()        )
+                   :m_result_type_info.is_unsigned_integer()? sc_value(m_l_value.unsigned_integer()-m_r_value.unsigned_integer())
+                   :m_result_type_info.is_integer()?          sc_value(m_l_value.integer()         -m_r_value.integer()         )
+                   :sc_value()
+                   ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_mul() noexcept
 {
-  auto  c = convert_values();
+  convert_values();
 
-  return (c == 'd')? sc_value(m_left.floating()        *m_right.floating()        )
-        :(c == 'u')? sc_value(m_left.unsigned_integer()*m_right.unsigned_integer())
-        :(c == 'i')? sc_value(m_left.integer()         *m_right.integer()         )
-        :            sc_value(                                                    )
-        ;
+  m_result_value = m_result_type_info.is_floating()?         sc_value(m_l_value.floating()        *m_r_value.floating()        )
+                  :m_result_type_info.is_unsigned_integer()? sc_value(m_l_value.unsigned_integer()*m_r_value.unsigned_integer())
+                  :m_result_type_info.is_integer()?          sc_value(m_l_value.integer()         *m_r_value.integer()         )
+                  :sc_value()
+                  ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_div() noexcept
 {
-  auto  c = convert_values();
+  convert_values();
 
-  return (c == 'd')? sc_value(m_left.floating()        /m_right.floating()        )
-        :(c == 'u')? sc_value(m_left.unsigned_integer()/m_right.unsigned_integer())
-        :(c == 'i')? sc_value(m_left.integer()         /m_right.integer()         )
-        :            sc_value(                                                    )
-        ;
+  m_result_value = m_result_type_info.is_floating()?         sc_value(m_l_value.floating()        /m_r_value.floating()        )
+                  :m_result_type_info.is_unsigned_integer()? sc_value(m_l_value.unsigned_integer()/m_r_value.unsigned_integer())
+                  :m_result_type_info.is_integer()?          sc_value(m_l_value.integer()         /m_r_value.integer()         )
+                  :sc_value()
+                  ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_rem() noexcept
 {
-  auto  c = convert_values();
+  convert_values();
 
-  return (c == 'd')? sc_value(std::fmod(m_left.floating(),m_right.floating())     )
-        :(c == 'u')? sc_value(m_left.unsigned_integer()%m_right.unsigned_integer())
-        :(c == 'i')? sc_value(m_left.integer()         %m_right.integer()         )
-        :            sc_value(                                                    )
-        ;
+  m_result_value = m_result_type_info.is_floating()?         sc_value(std::fmod(m_l_value.floating(),m_r_value.floating())     )
+                  :m_result_type_info.is_unsigned_integer()? sc_value(m_l_value.unsigned_integer()%m_r_value.unsigned_integer())
+                  :m_result_type_info.is_integer()?          sc_value(m_l_value.integer()         %m_r_value.integer()         )
+                  :sc_value()
+                  ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_shl() noexcept
 {
-  auto  c = convert_values();
+  convert_values();
 
-  return (c == 'u')? sc_value(m_left.unsigned_integer()<<m_right.unsigned_integer())
-        :(c == 'i')? sc_value(m_left.integer()         <<m_right.integer()         )
-        :            sc_value(                                                    )
-        ;
+  m_result_value = m_result_type_info.is_unsigned_integer()? sc_value(m_l_value.unsigned_integer()<<m_r_value.unsigned_integer())
+                  :m_result_type_info.is_integer()?          sc_value(m_l_value.integer()         <<m_r_value.integer()         )
+                  :sc_value()
+                  ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_shr() noexcept
 {
-  auto  c = convert_values();
+  convert_values();
 
-  return (c == 'u')? sc_value(m_left.unsigned_integer()>>m_right.unsigned_integer())
-        :(c == 'i')? sc_value(m_left.integer()         >>m_right.integer()         )
-        :            sc_value(                                                    )
-        ;
+  m_result_value = m_result_type_info.is_unsigned_integer()? sc_value(m_l_value.unsigned_integer()>>m_r_value.unsigned_integer())
+                  :m_result_type_info.is_integer()?          sc_value(m_l_value.integer()         >>m_r_value.integer()         )
+                  :sc_value()
+                  ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_and() noexcept
 {
-  auto  c = convert_values();
+  convert_values();
 
-  return (c == 'u')? sc_value(m_left.unsigned_integer()&m_right.unsigned_integer())
-        :(c == 'i')? sc_value(m_left.integer()         &m_right.integer()         )
-        :            sc_value(                                                    )
-        ;
+  m_result_value = m_result_type_info.is_unsigned_integer()? sc_value(m_l_value.unsigned_integer()&m_r_value.unsigned_integer())
+                  :m_result_type_info.is_integer()?          sc_value(m_l_value.integer()         &m_r_value.integer()         )
+                  :sc_value()
+                  ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_or() noexcept
 {
-  auto  c = convert_values();
+  convert_values();
 
-  return (c == 'u')? sc_value(m_left.unsigned_integer()|m_right.unsigned_integer())
-        :(c == 'i')? sc_value(m_left.integer()         |m_right.integer()         )
-        :            sc_value(                                                    )
-        ;
+  m_result_value = m_result_type_info.is_unsigned_integer()? sc_value(m_l_value.unsigned_integer()|m_r_value.unsigned_integer())
+                  :m_result_type_info.is_integer()?          sc_value(m_l_value.integer()         |m_r_value.integer()         )
+                  :sc_value()
+                  ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_xor() noexcept
 {
-  auto  c = convert_values();
+  convert_values();
 
-  return (c == 'u')? sc_value(m_left.unsigned_integer()^m_right.unsigned_integer())
-        :(c == 'i')? sc_value(m_left.integer()         ^m_right.integer()         )
-        :            sc_value(                                                    )
-        ;
+  m_result_value = m_result_type_info.is_unsigned_integer()? sc_value(m_l_value.unsigned_integer()^m_r_value.unsigned_integer())
+                  :m_result_type_info.is_integer()? sc_value(m_l_value.integer()         ^m_r_value.integer()         )
+                  :sc_value()
+                  ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_eq() noexcept
 {
-  return is_floating()?         m_left.floating()         == m_right.floating()
-        :is_unsigned_integer()? m_left.unsigned_integer() == m_right.unsigned_integer()
-        :is_integer()?          m_left.integer()          == m_right.integer()
-        :is_pointer()?          m_left.integer()          == m_right.integer()
-        :false
-        ;
+  m_result_value = m_result_type_info.is_floating()?         m_l_value.floating()         == m_r_value.floating()
+                  :m_result_type_info.is_unsigned_integer()? m_l_value.unsigned_integer() == m_r_value.unsigned_integer()
+                  :m_result_type_info.is_integer()?          m_l_value.integer()          == m_r_value.integer()
+                  :m_result_type_info.is_pointer()?          m_l_value.integer()          == m_r_value.integer()
+                  :false
+                  ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_neq() noexcept
 {
-  return is_floating()?         m_left.floating()         != m_right.floating()
-        :is_unsigned_integer()? m_left.unsigned_integer() != m_right.unsigned_integer()
-        :is_integer()?          m_left.integer()          != m_right.integer()
-        :is_pointer()?          m_left.integer()          != m_right.integer()
-        :false
-        ;
+  m_result_value = m_result_type_info.is_floating()?         m_l_value.floating()         != m_r_value.floating()
+                  :m_result_type_info.is_unsigned_integer()? m_l_value.unsigned_integer() != m_r_value.unsigned_integer()
+                  :m_result_type_info.is_integer()?          m_l_value.integer()          != m_r_value.integer()
+                  :m_result_type_info.is_pointer()?          m_l_value.integer()          != m_r_value.integer()
+                  :false
+                  ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_lt() noexcept
 {
-  return is_floating()?         m_left.floating()         < m_right.floating()
-        :is_unsigned_integer()? m_left.unsigned_integer() < m_right.unsigned_integer()
-        :is_integer()?          m_left.integer()          < m_right.integer()
-        :is_pointer()?          m_left.integer()          < m_right.integer()
-        :false
-        ;
+  m_result_value = m_result_type_info.is_floating()?         m_l_value.floating()         < m_r_value.floating()
+                  :m_result_type_info.is_unsigned_integer()? m_l_value.unsigned_integer() < m_r_value.unsigned_integer()
+                  :m_result_type_info.is_integer()?          m_l_value.integer()          < m_r_value.integer()
+                  :m_result_type_info.is_pointer()?          m_l_value.integer()          < m_r_value.integer()
+                  :false
+                  ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_lteq() noexcept
 {
-  return is_floating()?         m_left.floating()         <= m_right.floating()
-        :is_unsigned_integer()? m_left.unsigned_integer() <= m_right.unsigned_integer()
-        :is_integer()?          m_left.integer()          <= m_right.integer()
-        :is_pointer()?          m_left.integer()          <= m_right.integer()
-        :false
-        ;
+  m_result_value = m_result_type_info.is_floating()?         m_l_value.floating()         <= m_r_value.floating()
+                  :m_result_type_info.is_unsigned_integer()? m_l_value.unsigned_integer() <= m_r_value.unsigned_integer()
+                  :m_result_type_info.is_integer()?          m_l_value.integer()          <= m_r_value.integer()
+                  :m_result_type_info.is_pointer()?          m_l_value.integer()          <= m_r_value.integer()
+                  :false
+                  ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_gt() noexcept
 {
-  return is_floating()?         m_left.floating()         > m_right.floating()
-        :is_unsigned_integer()? m_left.unsigned_integer() > m_right.unsigned_integer()
-        :is_integer()?          m_left.integer()          > m_right.integer()
-        :is_pointer()?          m_left.integer()          > m_right.integer()
-        :false
-        ;
+  m_result_value = m_result_type_info.is_floating()?         m_l_value.floating()         > m_r_value.floating()
+                  :m_result_type_info.is_unsigned_integer()? m_l_value.unsigned_integer() > m_r_value.unsigned_integer()
+                  :m_result_type_info.is_integer()?          m_l_value.integer()          > m_r_value.integer()
+                  :m_result_type_info.is_pointer()?          m_l_value.integer()          > m_r_value.integer()
+                  :false
+                  ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_gteq() noexcept
 {
-  return is_floating()?         m_left.floating()         >= m_right.floating()
-        :is_unsigned_integer()? m_left.unsigned_integer() >= m_right.unsigned_integer()
-        :is_integer()?          m_left.integer()          >= m_right.integer()
-        :is_pointer()?          m_left.integer()          >= m_right.integer()
-        :false
-        ;
+  m_result_value = m_result_type_info.is_floating()?         m_l_value.floating()         >= m_r_value.floating()
+                  :m_result_type_info.is_unsigned_integer()? m_l_value.unsigned_integer() >= m_r_value.unsigned_integer()
+                  :m_result_type_info.is_integer()?          m_l_value.integer()          >= m_r_value.integer()
+                  :m_result_type_info.is_pointer()?          m_l_value.integer()          >= m_r_value.integer()
+                  :false
+                  ;
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_logical_and() noexcept
 {
-  return sc_value(m_left.integer() && m_right.integer());
+  m_result_value = sc_value(m_l_value && m_r_value);
+
+  return *this;
 }
 
 
-sc_value
+sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_logical_or() noexcept
 {
-  return sc_value(m_left.integer() || m_right.integer());
+  m_result_value = sc_value(m_l_value || m_r_value);
+
+  return *this;
+}
+
+
+sc_binary_operation::functor&
+sc_binary_operation::functor::
+operate_rv() noexcept
+{
+  m_result_type_info = m_r_type_info;
+  m_result_value     = m_r_value;
+
+  return *this;
 }
 
 
@@ -343,11 +352,11 @@ operate_logical_or() noexcept
 
 sc_value
 sc_binary_operation::
-operate_assign(const sc_value&  l, sc_value&&  r, sc_context&  ctx) noexcept
+operate_assign(sc_value  l, const sc_type_info&  lti, functor&  f, sc_context&  ctx) noexcept
 {
-    if(l.type_info().is_reference())
+    if(lti.is_reference())
     {
-      ctx.store(l.integer(),remove_reference(l.type_info()),ctx.dereference(r));
+      ctx.store(l.integer(),remove_reference(lti),f.result_value(),f.result_type_info());
 
       return l;
     }

@@ -12,7 +12,7 @@ void
 sc_context::
 process(const sc_statement&  st) noexcept
 {
-       if(st.is_return()    ){process_return(st.expression().evaluate(*this));}
+       if(st.is_return()    ){process_return(st.expression().evaluate(*this),st.expression().type_info(*this));}
   else if(st.is_while()     ){process_while(st.conditional_block());}
   else if(st.is_for()       ){}
   else if(st.is_switch()    ){process_switch(st.conditional_block());}
@@ -32,11 +32,17 @@ process(const sc_statement&  st) noexcept
 
 void
 sc_context::
-process_return(sc_value  v) noexcept
+process_return(sc_value  v, const sc_type_info&  ti) noexcept
 {
-  m_returned_value = dereference(v);
+  auto&  frm = m_frame_stack.back();
 
-  m_memory.resize(m_frame_stack.back().m_memory_size);
+  auto&  ret_ti = frm.m_function->signature().type_info();
+
+  auto  cv = v.convert(ti,ret_ti,*this);
+
+  m_returned_value = sc_value_with_type_info(cv,ret_ti);
+
+  m_memory.resize(frm.m_memory_size);
 
   m_frame_stack.pop_back();
 }
@@ -155,7 +161,10 @@ process_var(const sc_var&  v) noexcept
 
     if(sym && !sym->attribute().has_const())
     {
-      store(*sym,v.expression().evaluate(*this));
+      auto   ti = v.expression().type_info(*this);
+      auto  val = v.expression().evaluate(*this);
+
+      store(*sym,val,ti);
     }
 }
 

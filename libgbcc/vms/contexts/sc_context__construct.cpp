@@ -104,6 +104,7 @@ sc_context::
 construct_var(const syntax_branch&  br) noexcept
 {
   return (br.length() == 4)? sc_var(br[1].token().string(),construct_type_info(br[3].branch()),sc_expression())
+        :(br.length() == 7)? sc_var(br[1].token().string(),construct_type_info(br[3].branch()),sc_expression())
         :                    sc_var(br[1].token().string(),construct_type_info(br[3].branch()),sc_expression(br[5].branch()))
         ;
 }
@@ -203,7 +204,29 @@ construct_type_info(const syntax_branch&  br) noexcept
             {
               std::u16string_view  sv = tok.string();
 
-              ti.assign(sv);
+              ti = (sv == u"nullptr_t")? sc_nullptr_ti
+                  :(sv == u"undef")? sc_undef_ti
+                  :(sv == u"void")? sc_void_ti
+                  :(sv == u"int8")? sc_int8_ti
+                  :(sv == u"int16")? sc_int16_ti
+                  :(sv == u"int32")? sc_int32_ti
+                  :(sv == u"int64")? sc_int64_ti
+                  :(sv == u"int")? sc_int64_ti
+                  :(sv == u"uint8")? sc_uint8_ti
+                  :(sv == u"uint16")? sc_uint16_ti
+                  :(sv == u"uint32")? sc_uint32_ti
+                  :(sv == u"uint64")? sc_uint64_ti
+                  :(sv == u"uint")? sc_uint64_ti
+                  :(sv == u"float32")? sc_float32_ti
+                  :(sv == u"float64")? sc_float64_ti
+                  :(sv == u"float")? sc_float64_ti
+                  :(sv == u"bool8")? sc_bool8_ti
+                  :(sv == u"bool16")? sc_bool16_ti
+                  :(sv == u"bool32")? sc_bool32_ti
+                  :(sv == u"bool64")? sc_bool64_ti
+                  :(sv == u"bool")? sc_bool64_ti
+                  :sc_undef_ti
+                  ;
             }
         }
 

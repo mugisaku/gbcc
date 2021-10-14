@@ -9,9 +9,9 @@ namespace gbcc{
 
 std::string
 sc_signature::
-make_id() const noexcept
+id() const noexcept
 {
-  std::string  s("fp");
+  std::string  s("fn");
 
   s += m_type_info.id();
 

@@ -317,26 +317,28 @@ sc_constant
 {
   std::u16string  m_name;
 
+  sc_type_info  m_type_info;
+
   sc_value  m_value;
 
 public:
   sc_constant() noexcept{}
-  sc_constant(std::u16string_view  name, sc_value&&  v) noexcept: m_name(name), m_value(std::move(v)){}
+  sc_constant(std::u16string_view  name, sc_value  v) noexcept: m_name(name), m_value(v){}
 
-  sc_constant&  assign(std::u16string_view  name, sc_value&&  v) noexcept{
+  sc_constant&  assign(std::u16string_view  name, sc_value  v) noexcept{
     m_name = name;
-    m_value = std::move(v);
+    m_value = v;
     return *this;
   }
 
   const std::u16string&  name() const noexcept{return m_name;}
 
-  const sc_value&  value() const noexcept{return m_value;}
+  sc_value  value() const noexcept{return m_value;}
 
   void  print() const noexcept{
     gbcc::print(m_name);
     printf("(");
-    m_value.print();
+    m_value.print(m_type_info);
     printf(")");
   }
 
@@ -539,7 +541,7 @@ sc_context
 
   std::vector<frame>  m_frame_stack;
 
-  sc_value  m_returned_value;
+  sc_value_with_type_info  m_returned_value;
 
   bool  m_halt_flag;
 
@@ -561,7 +563,7 @@ sc_context
 
   void  process(const sc_statement&  st) noexcept;
 
-  void  process_return(sc_value  v=sc_value()) noexcept;
+  void  process_return(sc_value  v=sc_value(), const sc_type_info&  ti=sc_undef_ti) noexcept;
   void  process_while(const sc_conditional_block&  cblk) noexcept;
 //  void  process_for() noexcept;
   void  process_switch(const sc_conditional_block&  cblk) noexcept;
@@ -593,17 +595,16 @@ public:
 
   sc_reference  get_reference(std::u16string_view  name) noexcept;
 
-  sc_value  dereference(const sc_value&  v) noexcept;
-
   void  add_constant(std::u16string_view  name, sc_value&&  v) noexcept{m_constant_list.emplace_back(name,std::move(v));}
 
   sc_accessor  accessor(int64_t  address) noexcept{return sc_accessor(&m_memory[address]);}
 
   sc_value  load(int64_t  address, const sc_type_info&  ti) noexcept;
+  sc_value  dereference(sc_value  v, const sc_type_info&  ti) noexcept;
 
-  void  store(std::u16string_view  var_name, sc_value  v) noexcept;
-  void  store(const sc_symbol&  sym, sc_value  v) noexcept;
-  void  store(int64_t  address, const sc_type_info&  ti, sc_value  v) noexcept;
+  void  store(std::u16string_view  var_name, sc_value  v, const sc_type_info&  ti) noexcept;
+  void  store(const sc_symbol&  sym, sc_value  v, const sc_type_info&  ti) noexcept;
+  void  store(int64_t  address, const sc_type_info&  dst_ti, sc_value  v, const sc_type_info&  ti) noexcept;
 
   int  call(std::u16string_view  fn_name, const sc_expression_list&  args) noexcept;
   int  call(const sc_function&  fn, const sc_expression_list&  args) noexcept;
@@ -612,7 +613,7 @@ public:
   void  reset() noexcept;
   void  step() noexcept;
 
-  sc_value  run(int  depth) noexcept;
+  const sc_value_with_type_info&  run(int  depth) noexcept;
 
   void  halt() noexcept{m_halt_flag = true;}
   bool  is_halted() const noexcept{return m_halt_flag;}

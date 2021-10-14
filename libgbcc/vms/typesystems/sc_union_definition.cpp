@@ -38,7 +38,7 @@ find(std::u16string_view  name) const noexcept
 
 std::string
 sc_union_definition::
-make_id() const noexcept
+id() const noexcept
 {
   std::string  s("un");
 

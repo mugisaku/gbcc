@@ -42,42 +42,11 @@ constexpr int  g_pointer_size = 8;
 class
 sc_type_info
 {
-  enum class kind{
-    null,
+  int  m_letter;
+  int    m_size;
+  int   m_align;
 
-    null_pointer,
-    void_,
-    undefined,
-
-    bool8,
-    bool16,
-    bool32,
-    bool64,
-    char8,
-    char16,
-    char32,
-    int8,
-    int16,
-    int32,
-    int64,
-    uint8,
-    uint16,
-    uint32,
-    uint64,
-    float32,
-    float64,
-
-    pointer,
-    reference,
-    array,
-    struct_,
-    union_,
-    enum_,
-    function_pointer,
-
-    identifier,
-
-  } m_kind=kind::null;
+  std::string  m_id;
 
   union data{
     sc_pointer_info*     ptr;
@@ -90,19 +59,13 @@ sc_type_info
 
     sc_signature*  sig;
 
-    std::u16string  s;
-
     data() noexcept{}
    ~data(){}
 
   } m_data;
 
-  std::string  m_id;
-
-  sc_type_info(kind  k) noexcept: m_kind(k){}
-
 public:
-  sc_type_info() noexcept{}
+  sc_type_info(char  l=0, int  sz=0) noexcept: m_letter(l), m_size(sz), m_align(sz){}
  ~sc_type_info(){clear();}
 
   template<class...  Args>
@@ -119,8 +82,6 @@ public:
 
   sc_type_info&  assign(const sc_type_info&   rhs) noexcept;
   sc_type_info&  assign(      sc_type_info&&  rhs) noexcept;
-  sc_type_info&  assign(std::u16string_view  id) noexcept;
-  sc_type_info&  assign(const char16_t*  s) noexcept{return assign(std::u16string_view(s));}
   sc_type_info&  assign(sc_pointer_info&&  ptr) noexcept;
   sc_type_info&  assign(sc_reference_info&&  ref) noexcept;
   sc_type_info&  assign(sc_array_info&&  arr) noexcept;
@@ -130,57 +91,34 @@ public:
   sc_type_info&  assign(sc_signature&&  sig) noexcept;
 
   void  clear() noexcept;
-  void  update_id() noexcept;
 
-  operator bool() const noexcept{return m_kind != kind::null;}
+  operator bool() const noexcept{return m_letter;}
 
-  bool  is_void()             const noexcept{return m_kind == kind::void_;}
-  bool  is_undefined()        const noexcept{return m_kind == kind::undefined;}
-  bool  is_null_pointer()     const noexcept{return m_kind == kind::null_pointer;}
-
-  bool  is_bool8()  const noexcept{return m_kind == kind::bool8;}
-  bool  is_bool16() const noexcept{return m_kind == kind::bool16;}
-  bool  is_bool32() const noexcept{return m_kind == kind::bool32;}
-  bool  is_bool64() const noexcept{return m_kind == kind::bool64;}
-
-  bool  is_boolean() const noexcept{return is_bool8() || is_bool16() || is_bool32() || is_bool64();}
-
-  bool  is_char8()  const noexcept{return m_kind == kind::char8;}
-  bool  is_char16() const noexcept{return m_kind == kind::char16;}
-  bool  is_char32() const noexcept{return m_kind == kind::char32;}
-
-  bool  is_character() const noexcept{return is_char8() || is_char16() || is_char32();}
-
-  bool  is_int8()  const noexcept{return m_kind == kind::int8;}
-  bool  is_int16() const noexcept{return m_kind == kind::int16;}
-  bool  is_int32() const noexcept{return m_kind == kind::int32;}
-  bool  is_int64() const noexcept{return m_kind == kind::int64;}
-
-  bool  is_integer() const noexcept{return is_int8() || is_int16() || is_int32() || is_int64();}
-
-  bool  is_uint8()  const noexcept{return m_kind == kind::uint8;}
-  bool  is_uint16() const noexcept{return m_kind == kind::uint16;}
-  bool  is_uint32() const noexcept{return m_kind == kind::uint32;}
-  bool  is_uint64() const noexcept{return m_kind == kind::uint64;}
-
-  bool  is_unsigned_integer() const noexcept{return is_uint8() || is_uint16() || is_uint32() || is_uint64();}
-
-  bool  is_float32() const noexcept{return m_kind == kind::float32;}
-  bool  is_float64() const noexcept{return m_kind == kind::float64;}
-
-  bool  is_floating() const noexcept{return is_float32() || is_float64();}
-
-  bool  is_pointer()          const noexcept{return m_kind == kind::pointer;}
-  bool  is_reference()        const noexcept{return m_kind == kind::reference;}
-  bool  is_array()            const noexcept{return m_kind == kind::array;}
-  bool  is_struct()           const noexcept{return m_kind == kind::struct_;}
-  bool  is_union()            const noexcept{return m_kind == kind::union_;}
-  bool  is_function_pointer() const noexcept{return m_kind == kind::function_pointer;}
-
-  int   size() const noexcept;
-  int  align() const noexcept;
+  bool  operator==(const sc_type_info&  rhs) const noexcept{return m_id == rhs.m_id;}
+  bool  operator!=(const sc_type_info&  rhs) const noexcept{return m_id != rhs.m_id;}
 
   const std::string&  id() const noexcept{return m_id;}
+
+  bool  is_void()             const noexcept{return m_letter == 'V';}
+  bool  is_undefined()        const noexcept{return m_letter == 'U';}
+  bool  is_null_pointer()     const noexcept{return m_letter == 'N';}
+
+  bool  is_boolean()          const noexcept{return m_letter == 'b';}
+  bool  is_character()        const noexcept{return m_letter == 'c';}
+  bool  is_integer()          const noexcept{return m_letter == 'i';}
+  bool  is_unsigned_integer() const noexcept{return m_letter == 'u';}
+  bool  is_floating()         const noexcept{return m_letter == 'f';}
+
+  bool  is_pointer()   const noexcept{return m_letter == 'p';}
+  bool  is_reference() const noexcept{return m_letter == 'r';}
+  bool  is_array()     const noexcept{return m_letter == 'a';}
+  bool  is_struct()    const noexcept{return m_letter == 's';}
+  bool  is_union()     const noexcept{return m_letter == 'o';}
+  bool  is_enum()      const noexcept{return m_letter == 'e';}
+  bool  is_function()  const noexcept{return m_letter == 'F';}
+
+  int   size() const noexcept{return m_size;}
+  int  align() const noexcept{return m_align;}
 
   const sc_pointer_info&       pointer_info() const noexcept{return *m_data.ptr;}
   const sc_reference_info&   reference_info() const noexcept{return *m_data.ref;}
@@ -191,8 +129,6 @@ public:
   const sc_enum_definition&      enum_definition() const noexcept{return *m_data.en;}
 
   const sc_signature&  signature() const noexcept{return *m_data.sig;}
-
-  const std::u16string&  string() const noexcept{return m_data.s;}
 
   void  print() const noexcept;
 
@@ -266,8 +202,6 @@ public:
   int   size() const noexcept{return m_target.size()*m_number_of_elements;}
   int  align() const noexcept{return m_target.align();}
 
-  std::string  make_id() const noexcept{return std::string("a")+std::to_string(m_number_of_elements);}
-
   void  print() const noexcept
   {
     m_target.print();
@@ -319,7 +253,7 @@ public:
   int   size() const noexcept{return m_size;}
   int  align() const noexcept{return m_align;}
 
-  std::string  make_id() const noexcept;
+  std::string  id() const noexcept;
 
   void  print() const noexcept;
 
@@ -353,7 +287,7 @@ public:
   int   size() const noexcept{return m_size;}
   int  align() const noexcept{return m_align;}
 
-  std::string  make_id() const noexcept;
+  std::string  id() const noexcept;
 
   void  print() const noexcept;
 
@@ -396,7 +330,7 @@ public:
 
   const int64_t*  find(std::u16string_view  name) const noexcept;
 
-  std::string  make_id() const noexcept;
+  std::string  id() const noexcept;
 
   void  print() const noexcept;
 
@@ -444,7 +378,7 @@ public:
 
   const sc_parameter_list&  parameter_list() const noexcept{return m_parameter_list;}
 
-  std::string  make_id() const noexcept;
+  std::string  id() const noexcept;
 
   void  print() const noexcept;
 
@@ -462,6 +396,23 @@ sc_type_info    remove_pointer(const sc_type_info&  ti) noexcept;
 sc_type_info  remove_reference(const sc_type_info&  ti) noexcept;
 
 
+extern const sc_type_info     sc_int8_ti;
+extern const sc_type_info    sc_int16_ti;
+extern const sc_type_info    sc_int32_ti;
+extern const sc_type_info    sc_int64_ti;
+extern const sc_type_info    sc_uint8_ti;
+extern const sc_type_info   sc_uint16_ti;
+extern const sc_type_info   sc_uint32_ti;
+extern const sc_type_info   sc_uint64_ti;
+extern const sc_type_info  sc_float32_ti;
+extern const sc_type_info  sc_float64_ti;
+extern const sc_type_info    sc_bool8_ti;
+extern const sc_type_info   sc_bool16_ti;
+extern const sc_type_info   sc_bool32_ti;
+extern const sc_type_info   sc_bool64_ti;
+extern const sc_type_info   sc_void_ti;
+extern const sc_type_info   sc_undef_ti;
+extern const sc_type_info   sc_nullptr_ti;
 
 
 }

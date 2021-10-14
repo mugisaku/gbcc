@@ -17,8 +17,6 @@ assign(const sc_expression&   rhs) noexcept
       clear();
 
       m_kind = rhs.m_kind;
-      m_type_info = rhs.m_type_info;
-      m_constant_value = rhs.m_constant_value? new sc_value(*rhs.m_constant_value):nullptr;
 
         switch(m_kind)
         {
@@ -40,9 +38,7 @@ assign(sc_expression&&  rhs) noexcept
     {
       clear();
 
-      std::swap(m_kind          ,rhs.m_kind);
-      std::swap(m_type_info     ,rhs.m_type_info);
-      std::swap(m_constant_value,rhs.m_constant_value);
+      std::swap(m_kind,rhs.m_kind);
 
         switch(m_kind)
         {
@@ -86,27 +82,13 @@ assign(sc_binary_operation&&  binop) noexcept
 
 sc_expression&
 sc_expression::
-assign(const sc_value&  v) noexcept
+assign(sc_value  v, const sc_type_info&  ti) noexcept
 {
   clear();
 
   m_kind = kind::unary;
 
-  m_data.unop = new sc_unary_operation(v);
-
-  return *this;
-}
-
-
-sc_expression&
-sc_expression::
-assign(sc_value&&  v) noexcept
-{
-  clear();
-
-  m_kind = kind::unary;
-
-  m_data.unop = new sc_unary_operation(std::move(v));
+  m_data.unop = new sc_unary_operation(v,ti);
 
   return *this;
 }
@@ -152,11 +134,21 @@ clear() noexcept
 
 
   m_kind = kind::null;
+}
 
-  m_type_info = sc_type_info();
 
-  delete m_constant_value          ;
-         m_constant_value = nullptr;
+sc_type_info
+sc_expression::
+type_info(const sc_context&  ctx) const noexcept
+{
+    switch(m_kind)
+    {
+  case(kind::unary ): return m_data.unop->type_info(ctx);break;
+  case(kind::binary): return m_data.binop->type_info(ctx);break;
+    }
+
+
+  return sc_type_info();
 }
 
 
@@ -164,12 +156,6 @@ sc_value
 sc_expression::
 evaluate(sc_context&  ctx) const noexcept
 {
-    if(m_constant_value)
-    {
-      return *m_constant_value;
-    }
-
-
     switch(m_kind)
     {
   case(kind::unary ): return m_data.unop->evaluate(ctx);break;
