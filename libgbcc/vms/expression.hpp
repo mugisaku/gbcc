@@ -16,6 +16,7 @@ namespace gbcc{
 class sc_unary_operation;
 class sc_binary_operation;
 class sc_expression;
+class sc_expression_element;
 class sc_context;
 
 using sc_expression_list = std::vector<sc_expression>;
@@ -333,39 +334,6 @@ public:
 };
 
 
-class
-sc_expression_element
-{
-  std::u16string  m_operator;
-
-  sc_unary_operation  m_operation;
-
-public:
-  sc_expression_element() noexcept{}
-
-  template<class...  Args>
-  sc_expression_element(Args&&...  args) noexcept{assign(std::forward<Args>(args)...);}
-
-  sc_expression_element(const sc_expression_element&   rhs) noexcept{assign(rhs);}
-  sc_expression_element(      sc_expression_element&&  rhs) noexcept{assign(std::move(rhs));}
-
-  sc_expression_element&  operator=(const sc_expression_element&   rhs) noexcept{return assign(rhs);}
-  sc_expression_element&  operator=(      sc_expression_element&&  rhs) noexcept{return assign(std::move(rhs));}
-
-  sc_expression_element&  assign(const sc_expression_element&   rhs) noexcept;
-  sc_expression_element&  assign(      sc_expression_element&&  rhs) noexcept;
-  sc_expression_element&  assign(                          sc_unary_operation&&  opti) noexcept;
-  sc_expression_element&  assign(std::u16string_view  opto, sc_unary_operation&&  opti) noexcept;
-
-  const std::u16string&  operator_() const noexcept{return m_operator;}
-
-  const sc_unary_operation&  operation() const noexcept{return m_operation;}
-
-  void  print() const noexcept;
-
-};
-
-
 
 
 class
@@ -384,6 +352,8 @@ sc_expression
 
   } m_data;
 
+
+  static std::vector<sc_expression_element>  make_stack(const syntax_branch_element*  it, const syntax_branch_element*  end_it) noexcept;
 
   static sc_unary_operation::prefix_element   construct_prefix_element(const syntax_branch&  br) noexcept;
   static sc_operand                           construct_operand(const syntax_branch&  br) noexcept;
@@ -433,15 +403,42 @@ public:
 };
 
 
+class
+sc_expression_element
+{
+  std::u16string  m_operator;
+
+  sc_expression  m_expression;
+
+public:
+  sc_expression_element() noexcept{}
+
+  template<class...  Args>
+  sc_expression_element(Args&&...  args) noexcept{assign(std::forward<Args>(args)...);}
+
+  sc_expression_element&  assign(sc_expression&&  expr) noexcept;
+  sc_expression_element&  assign(std::u16string_view  oprt) noexcept;
+  sc_expression_element&  assign(const std::u16string&  oprt) noexcept{return assign(std::u16string_view(oprt));}
+
+  bool  is_operator()   const noexcept{return m_operator.size();}
+  bool  is_expression() const noexcept{return !is_operator();}
+
+  const std::u16string&  operator_() const noexcept{return m_operator;}
+
+  sc_expression&  expression() noexcept{return m_expression;}
+
+};
+
+
 
 
 class
 sc_binary_operation
 {
-  std::u16string  m_operator;
-
   sc_expression  m_left;
   sc_expression  m_right;
+
+  std::u16string  m_operator;
 
   class functor{
     sc_value  m_l_value;
@@ -501,14 +498,14 @@ public:
 
   sc_binary_operation&  assign(const sc_binary_operation&   rhs) noexcept;
   sc_binary_operation&  assign(      sc_binary_operation&&  rhs) noexcept;
-  sc_binary_operation&  assign(std::u16string_view  o, sc_expression&&  l, sc_expression&&  r) noexcept;
+  sc_binary_operation&  assign(sc_expression&&  l, sc_expression&&  r, std::u16string_view  o) noexcept;
 
   void  clear() noexcept;
 
-  const std::u16string&  operator_() const noexcept{return m_operator;}
-
   const sc_expression&   left() const noexcept{return m_left;}
   const sc_expression&  right() const noexcept{return m_right;}
+
+  const std::u16string&  operator_() const noexcept{return m_operator;}
 
   sc_type_info  type_info(const sc_context&  ctx) const noexcept;
 

@@ -16,10 +16,10 @@ assign(const sc_binary_operation&  rhs) noexcept
     {
       clear();
 
-      m_operator = rhs.m_operator;
-
       m_left  = rhs.m_left ;
       m_right = rhs.m_right;
+
+      m_operator = rhs.m_operator;
     }
 
 
@@ -35,10 +35,10 @@ assign(sc_binary_operation&&  rhs) noexcept
     {
       clear();
 
-      std::swap(m_operator,rhs.m_operator);
-
       std::swap(m_left ,rhs.m_left );
       std::swap(m_right,rhs.m_right);
+
+      std::swap(m_operator,rhs.m_operator);
     }
 
 
@@ -48,12 +48,12 @@ assign(sc_binary_operation&&  rhs) noexcept
 
 sc_binary_operation&
 sc_binary_operation::
-assign(std::u16string_view  o, sc_expression&&  l, sc_expression&&  r) noexcept
+assign(sc_expression&&  l, sc_expression&&  r, std::u16string_view  o) noexcept
 {
-  m_operator = o;
-
   m_left  = std::move(l);
   m_right = std::move(r);
+
+  m_operator = o;
 
   return *this;
 }
@@ -63,10 +63,10 @@ void
 sc_binary_operation::
 clear() noexcept
 {
-  m_operator.clear();
-
   m_left.clear();
   m_right.clear();
+
+  m_operator.clear();
 }
 
 

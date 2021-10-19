@@ -163,39 +163,145 @@ construct_unary_operation(const syntax_branch&  br) noexcept
 
 
 
+namespace{
+bool
+is_assignment(std::u16string_view  sv) noexcept
+{
+  return (sv == u"="  ) ||
+         (sv == u"+=" ) ||
+         (sv == u"-=" ) ||
+         (sv == u"*=" ) ||
+         (sv == u"/=" ) ||
+         (sv == u"%=" ) ||
+         (sv == u"<<=") ||
+         (sv == u">>=") ||
+         (sv == u"|=" ) ||
+         (sv == u"&=" ) ||
+         (sv == u"^=" );
+}
+}
+
+
+std::vector<sc_expression_element>
+sc_expression::
+make_stack(const syntax_branch_element*  it, const syntax_branch_element*  end_it) noexcept
+{
+  std::vector<sc_expression_element>  stack;
+
+  std::u16string_view  assign_operator;
+  std::u16string_view  operator_buffer;
+
+    if(it != end_it)
+    {
+        if(it->is_branch(u"unary_operation"))
+        {
+          stack.emplace_back(sc_expression(construct_unary_operation(it++->branch())));
+
+            while(it != end_it)
+            {
+              auto&  e = *it++;
+
+                if(e.is_branch(u"binary_operator"))
+                {
+                  std::u16string_view  oprt = e.branch()[0].string();
+
+                    if(is_assignment(oprt))
+                    {
+                        if(assign_operator.size())
+                        {
+                          printf("multi assign operator is found\n");
+
+                          return {};
+                        }
+
+
+                      assign_operator = oprt;
+                    }
+
+                  else
+                    {
+                        if(operator_buffer.size())
+                        {
+                          stack.emplace_back(operator_buffer);
+                        }
+
+
+                      operator_buffer = oprt;
+                    }
+
+
+                    if(it->is_branch(u"unary_operation"))
+                    {
+                      stack.emplace_back(sc_expression(construct_unary_operation(it++->branch())));
+                    }
+                }
+            }
+        }
+    }
+
+
+    if(operator_buffer.size())
+    {
+      stack.emplace_back(operator_buffer);
+    }
+
+
+    if(assign_operator.size())
+    {
+      stack.emplace_back(assign_operator);
+    }
+
+
+  return std::move(stack);
+}
+ 
+
 sc_expression&
 sc_expression::
 assign(const syntax_branch&  br) noexcept
 {
   clear();
 
-  auto  it     = br.begin();
-  auto  it_end = br.end();
+  auto  stack = make_stack(br.begin(),br.end());
 
-    if(it != it_end)
+  std::vector<sc_expression>  buffer;
+
+    for(auto&  e: stack)
     {
-        if(it->is_branch(u"unary_operation"))
+        if(e.is_operator())
         {
-          assign(construct_unary_operation(it++->branch()));
-
-            while(it != it_end)
+            if(buffer.size() < 2)
             {
-              auto&  e = *it++;
+              printf("expression construction error: number of operands is not enough");
 
-                if(e.is_branch(u"binary_operator"))
-                {
-                  std::u16string_view  sv = e.branch()[0].string();
-
-                    if(it->is_branch(u"unary_operation"))
-                    {
-                      sc_expression  l(std::move(*this));
-                      sc_expression  r(construct_unary_operation(it++->branch()));
-
-                      assign(sc_binary_operation(sv,std::move(l),std::move(r)));
-                    }
-                }
+              return *this;
             }
+
+
+          auto  r = std::move(buffer.back());
+
+          buffer.pop_back();
+
+          auto  l = std::move(buffer.back());
+
+          buffer.back() = sc_binary_operation(std::move(l),std::move(r),e.operator_());
         }
+
+      else
+        {
+          buffer.emplace_back(std::move(e.expression()));
+        }
+    }
+
+
+    if(buffer.size() != 1)
+    {
+      printf("expression construction error: invalid result");
+    }
+
+  else
+    {
+      *this = std::move(buffer.front());
     }
 
 

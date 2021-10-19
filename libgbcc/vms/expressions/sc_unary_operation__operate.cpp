@@ -156,7 +156,7 @@ operate_value(sc_value  v, const sc_type_info&  ti, const postfix_element&  e, s
 
             if(deref_ti.is_integer())
             {
-              sc_binary_operation  bin(u"+=",sc_expression(sc_operand(v,ti)),sc_expression(sc_operand(sc_value(1),sc_int64_ti)));
+              sc_binary_operation  bin(sc_expression(sc_operand(v,ti)),sc_expression(sc_operand(sc_value(1),sc_int64_ti)),u"+=");
 
               bin.evaluate(ctx);
 
@@ -180,7 +180,7 @@ operate_value(sc_value  v, const sc_type_info&  ti, const postfix_element&  e, s
 
             if(deref_ti.is_integer())
             {
-              sc_binary_operation  bin(u"-=",sc_expression(sc_operand(v,ti)),sc_expression(sc_operand(sc_value(1),sc_int64_ti)));
+              sc_binary_operation  bin(sc_expression(sc_operand(v,ti)),sc_expression(sc_operand(sc_value(1),sc_int64_ti)),u"-=");
 
               bin.evaluate(ctx);
 
@@ -250,7 +250,7 @@ operate_value(sc_value  v, const sc_type_info&  ti, const prefix_element&   e, s
 
       else
         {
-          sc_binary_operation  bin(u"+=",sc_expression(sc_operand(v,ti)),sc_expression(sc_operand(sc_value(1),sc_int64_ti)));
+          sc_binary_operation  bin(sc_expression(sc_operand(v,ti)),sc_expression(sc_operand(sc_value(1),sc_int64_ti)),u"+=");
 
           return bin.evaluate(ctx);
         }
@@ -266,7 +266,7 @@ operate_value(sc_value  v, const sc_type_info&  ti, const prefix_element&   e, s
 
       else
         {
-          sc_binary_operation  bin(u"-=",sc_expression(sc_operand(v,ti)),sc_expression(sc_operand(sc_value(1),sc_int64_ti)));
+          sc_binary_operation  bin(sc_expression(sc_operand(v,ti)),sc_expression(sc_operand(sc_value(1),sc_int64_ti)),u"-=");
 
           return bin.evaluate(ctx);
         }

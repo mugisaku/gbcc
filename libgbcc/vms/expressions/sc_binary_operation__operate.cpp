@@ -231,6 +231,8 @@ sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_eq() noexcept
 {
+  convert_values();
+
   m_result_value = m_result_type_info.is_floating()?         m_l_value.floating()         == m_r_value.floating()
                   :m_result_type_info.is_unsigned_integer()? m_l_value.unsigned_integer() == m_r_value.unsigned_integer()
                   :m_result_type_info.is_integer()?          m_l_value.integer()          == m_r_value.integer()
@@ -246,6 +248,8 @@ sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_neq() noexcept
 {
+  convert_values();
+
   m_result_value = m_result_type_info.is_floating()?         m_l_value.floating()         != m_r_value.floating()
                   :m_result_type_info.is_unsigned_integer()? m_l_value.unsigned_integer() != m_r_value.unsigned_integer()
                   :m_result_type_info.is_integer()?          m_l_value.integer()          != m_r_value.integer()
@@ -261,6 +265,8 @@ sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_lt() noexcept
 {
+  convert_values();
+
   m_result_value = m_result_type_info.is_floating()?         m_l_value.floating()         < m_r_value.floating()
                   :m_result_type_info.is_unsigned_integer()? m_l_value.unsigned_integer() < m_r_value.unsigned_integer()
                   :m_result_type_info.is_integer()?          m_l_value.integer()          < m_r_value.integer()
@@ -276,6 +282,8 @@ sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_lteq() noexcept
 {
+  convert_values();
+
   m_result_value = m_result_type_info.is_floating()?         m_l_value.floating()         <= m_r_value.floating()
                   :m_result_type_info.is_unsigned_integer()? m_l_value.unsigned_integer() <= m_r_value.unsigned_integer()
                   :m_result_type_info.is_integer()?          m_l_value.integer()          <= m_r_value.integer()
@@ -291,6 +299,8 @@ sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_gt() noexcept
 {
+  convert_values();
+
   m_result_value = m_result_type_info.is_floating()?         m_l_value.floating()         > m_r_value.floating()
                   :m_result_type_info.is_unsigned_integer()? m_l_value.unsigned_integer() > m_r_value.unsigned_integer()
                   :m_result_type_info.is_integer()?          m_l_value.integer()          > m_r_value.integer()
@@ -306,6 +316,8 @@ sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_gteq() noexcept
 {
+  convert_values();
+
   m_result_value = m_result_type_info.is_floating()?         m_l_value.floating()         >= m_r_value.floating()
                   :m_result_type_info.is_unsigned_integer()? m_l_value.unsigned_integer() >= m_r_value.unsigned_integer()
                   :m_result_type_info.is_integer()?          m_l_value.integer()          >= m_r_value.integer()
@@ -321,6 +333,8 @@ sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_logical_and() noexcept
 {
+  convert_values();
+
   m_result_value = sc_value(m_l_value && m_r_value);
 
   return *this;
@@ -331,6 +345,8 @@ sc_binary_operation::functor&
 sc_binary_operation::functor::
 operate_logical_or() noexcept
 {
+  convert_values();
+
   m_result_value = sc_value(m_l_value || m_r_value);
 
   return *this;
