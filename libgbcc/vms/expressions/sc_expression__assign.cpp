@@ -1,4 +1,5 @@
 #include"libgbcc/vms/expression.hpp"
+#include"libgbcc/vms/context.hpp"
 
 
 
@@ -8,12 +9,10 @@ namespace gbcc{
 
 
 
-sc_unary_operation::prefix_element
+sc_unary_operation
 sc_expression::
-construct_prefix_element(const syntax_branch&  br) noexcept
+make_prefix_unary_operation(const syntax_branch&  br, sc_unary_operation&&  src) noexcept
 {
-  using element = sc_unary_operation::prefix_element;
-
   auto&  s = br[0].string();
 
   std::string_view  sv( (s == u"*")? "*"
@@ -25,7 +24,7 @@ construct_prefix_element(const syntax_branch&  br) noexcept
                        :(s == u"--")? "--"
                        :"");
 
-  return element(sv);
+  return sc_unary_operation(sc_expression(std::move(src)),sv);
 }
 
 
@@ -86,29 +85,29 @@ construct_argument_list(const syntax_branch&  br) noexcept
 }
 
 
-sc_unary_operation::postfix_element
+sc_unary_operation
 sc_expression::
-construct_postfix_element(const syntax_branch&  br) noexcept
+make_postfix_unary_operation(const syntax_branch&  br, sc_unary_operation&&  src) noexcept
 {
-  using element = sc_unary_operation::postfix_element;
+  sc_unary_operation  o;
 
   auto&  e = br[0];
 
     if(e.is_branch(u"access"))
     {
-      return element(std::u16string_view(e.branch()[1].string()));
+      o.assign(sc_expression(std::move(src)),std::u16string_view(e.branch()[1].string()));
     }
 
   else
     if(e.is_branch(u"index"))
     {
-      return element(sc_expression(e.branch()[1].branch()));
+      o.assign(sc_expression(std::move(src)),sc_expression(e.branch()[1].branch()));
     }
 
   else
     if(e.is_branch(u"argument_list"))
     {
-      return element(construct_argument_list(e.branch()));
+      o.assign(sc_expression(std::move(src)),construct_argument_list(e.branch()));
     }
 
   else
@@ -116,15 +115,15 @@ construct_postfix_element(const syntax_branch&  br) noexcept
     {
       auto&  s = e.string();
 
-      std::string_view  sv( (s == u"++")? "++"
-                           :(s == u"--")? "--"
+      std::string_view  sv( (s == u"++")? "_++"
+                           :(s == u"--")? "_--"
                            :"");
 
-      return element(sv);
+      o.assign(sc_expression(std::move(src)),sv);
     }
 
 
-  return element();
+  return std::move(o);
 }
 
 
@@ -132,32 +131,40 @@ sc_unary_operation
 sc_expression::
 construct_unary_operation(const syntax_branch&  br) noexcept
 {
-  sc_operand  o;
-  sc_unary_operation::prefix_element_list    prels;
-  sc_unary_operation::postfix_element_list  postls;
+  sc_unary_operation  o;
+
+  std::vector<const syntax_branch*>  prefixes;
 
     for(auto&  e: br)
     {
         if(e.is_branch(u"prefix_unary_operator"))
         {
-          prels.emplace_back(construct_prefix_element(e.branch()));
+          prefixes.emplace_back(&e.branch());
         }
 
       else
         if(e.is_branch(u"operand"))
         {
-          o.assign(construct_operand(e.branch()));
+          o.assign(sc_expression(construct_operand(e.branch())));
         }
 
       else
         if(e.is_branch(u"postfix_unary_operator"))
         {
-          postls.emplace_back(construct_postfix_element(e.branch()));
+          o.assign(make_postfix_unary_operation(e.branch(),std::move(o)));
         }
     }
 
 
-  return sc_unary_operation(std::move(prels),std::move(o),std::move(postls));
+    while(prefixes.size())
+    {
+      o.assign(make_prefix_unary_operation(*prefixes.back(),std::move(o)));
+
+      prefixes.pop_back();
+    }
+
+
+  return std::move(o);
 }
 
 
@@ -182,11 +189,103 @@ is_assignment(std::u16string_view  sv) noexcept
 }
 
 
-std::vector<sc_expression_element>
+
+
+class
+sc_expression::
+element
+{
+  std::u16string  m_operator;
+
+  sc_expression  m_expression;
+
+public:
+  element() noexcept{}
+
+  template<class...  Args>
+  element(Args&&...  args) noexcept{assign(std::forward<Args>(args)...);}
+
+  element&  assign(sc_expression&&  expr) noexcept;
+  element&  assign(std::u16string_view  oprt) noexcept;
+  element&  assign(const std::u16string&  oprt) noexcept{return assign(std::u16string_view(oprt));}
+
+  bool  is_operator()   const noexcept{return m_operator.size();}
+  bool  is_expression() const noexcept{return !is_operator();}
+
+  const std::u16string&  operator_() const noexcept{return m_operator;}
+
+  sc_expression&  expression() noexcept{return m_expression;}
+
+};
+
+
+sc_expression::element&
+sc_expression::element::
+assign(sc_expression&&  expr) noexcept
+{
+  m_operator.clear();
+
+  m_expression = std::move(expr);
+
+  return *this;
+}
+
+
+sc_expression::element&
+sc_expression::element::
+assign(std::u16string_view  oprt) noexcept
+{
+  m_operator = oprt;
+
+  m_expression.clear();
+
+  return *this;
+}
+
+
+void
+sc_expression::
+process(const syntax_branch_element*&  it, std::vector<element>&  stk, std::u16string_view&  assop, std::u16string_view&  opbuf) noexcept
+{
+  std::u16string_view  oprt = it++->branch()[0].string();
+
+    if(is_assignment(oprt))
+    {
+        if(assop.size())
+        {
+          printf("multi assign operator is found\n");
+
+          return;
+        }
+
+
+      assop = oprt;
+    }
+
+  else
+    {
+        if(opbuf.size())
+        {
+          stk.emplace_back(opbuf);
+        }
+
+
+      opbuf = oprt;
+    }
+
+
+    if(it->is_branch(u"unary_operation"))
+    {
+      stk.emplace_back(sc_expression(construct_unary_operation(it++->branch())));
+    }
+}
+
+
+std::vector<sc_expression::element>
 sc_expression::
 make_stack(const syntax_branch_element*  it, const syntax_branch_element*  end_it) noexcept
 {
-  std::vector<sc_expression_element>  stack;
+  std::vector<element>  stack;
 
   std::u16string_view  assign_operator;
   std::u16string_view  operator_buffer;
@@ -199,41 +298,9 @@ make_stack(const syntax_branch_element*  it, const syntax_branch_element*  end_i
 
             while(it != end_it)
             {
-              auto&  e = *it++;
-
-                if(e.is_branch(u"binary_operator"))
+                if(it->is_branch(u"binary_operator"))
                 {
-                  std::u16string_view  oprt = e.branch()[0].string();
-
-                    if(is_assignment(oprt))
-                    {
-                        if(assign_operator.size())
-                        {
-                          printf("multi assign operator is found\n");
-
-                          return {};
-                        }
-
-
-                      assign_operator = oprt;
-                    }
-
-                  else
-                    {
-                        if(operator_buffer.size())
-                        {
-                          stack.emplace_back(operator_buffer);
-                        }
-
-
-                      operator_buffer = oprt;
-                    }
-
-
-                    if(it->is_branch(u"unary_operation"))
-                    {
-                      stack.emplace_back(sc_expression(construct_unary_operation(it++->branch())));
-                    }
+                  process(it,stack,assign_operator,operator_buffer);
                 }
             }
         }
@@ -254,7 +321,9 @@ make_stack(const syntax_branch_element*  it, const syntax_branch_element*  end_i
 
   return std::move(stack);
 }
- 
+
+
+
 
 sc_expression&
 sc_expression::
@@ -294,7 +363,12 @@ assign(const syntax_branch&  br) noexcept
     }
 
 
-    if(buffer.size() != 1)
+    if(buffer.empty())
+    {
+    }
+
+  else
+    if(buffer.size() > 1)
     {
       printf("expression construction error: invalid result");
     }

@@ -4,6 +4,8 @@
 
 #include<string>
 #include<vector>
+#include<memory>
+#include<cinttypes>
 
 
 
@@ -64,6 +66,9 @@ std::string     make_string(std::u16string_view  sv) noexcept;
 std::u16string  make_u16string(std::string_view  sv) noexcept;
 
 std::string  make_string_from_file(std::string_view  path) noexcept;
+
+inline void  print( int64_t  i) noexcept{printf("%" PRIi64,i);}
+inline void  print(uint64_t  u) noexcept{printf("%" PRIu64,u);}
 
 void  print(std::u16string_view  sv) noexcept;
 void  print_indent(int  n) noexcept;
@@ -265,6 +270,14 @@ constexpr bool
 is_alphabet_or_number(char  c) noexcept
 {
   return(is_alphabet(c) || is_number(c));
+}
+
+
+template<class  T>
+std::unique_ptr<T>
+clone_unique(const std::unique_ptr<T>&  u) noexcept
+{
+  return u? std::unique_ptr<T>(new T(*u)):nullptr;
 }
 
 

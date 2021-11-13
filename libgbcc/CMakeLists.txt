@@ -17,15 +17,12 @@ set(SOURCES
   syntaxes/syntax_parser__lower.cpp
   vms/expressions/sc_value.cpp
   vms/expressions/sc_operand.cpp
-  vms/expressions/sc_unary_operation_prefix_element.cpp
-  vms/expressions/sc_unary_operation_postfix_element.cpp
   vms/expressions/sc_unary_operation.cpp
-  vms/expressions/sc_unary_operation__operate.cpp
+  vms/expressions/sc_unary_operation__evaluate.cpp
   vms/expressions/sc_binary_operation.cpp
   vms/expressions/sc_binary_operation__operate.cpp
   vms/expressions/sc_expression.cpp
   vms/expressions/sc_expression__assign.cpp
-  vms/expressions/sc_expression_element.cpp
   vms/typesystems/sc_struct_definition.cpp
   vms/typesystems/sc_union_definition.cpp
   vms/typesystems/sc_enum_definition.cpp
@@ -35,8 +32,9 @@ set(SOURCES
   vms/contexts/sc_block.cpp
   vms/contexts/sc_function.cpp
   vms/contexts/sc_context.cpp
-  vms/contexts/sc_context__construct.cpp
-  vms/contexts/sc_context__process.cpp
+  vms/contexts/sc_package.cpp
+  vms/contexts/sc_package__construct.cpp
+  vms/contexts/sc_function_execution_frame.cpp
   vms/vm_type_info.cpp
   vms/vm_opcode.cpp
   vms/vm_value.cpp

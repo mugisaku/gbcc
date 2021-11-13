@@ -20,6 +20,10 @@ assign(const sc_binary_operation&  rhs) noexcept
       m_right = rhs.m_right;
 
       m_operator = rhs.m_operator;
+
+      m_type_info = rhs.m_type_info;
+
+      m_constant_value = clone_unique(rhs.m_constant_value);
     }
 
 
@@ -39,6 +43,10 @@ assign(sc_binary_operation&&  rhs) noexcept
       std::swap(m_right,rhs.m_right);
 
       std::swap(m_operator,rhs.m_operator);
+
+      std::swap(m_type_info,rhs.m_type_info);
+
+      std::swap(m_constant_value,rhs.m_constant_value);
     }
 
 
@@ -50,6 +58,8 @@ sc_binary_operation&
 sc_binary_operation::
 assign(sc_expression&&  l, sc_expression&&  r, std::u16string_view  o) noexcept
 {
+  clear();
+
   m_left  = std::move(l);
   m_right = std::move(r);
 
@@ -67,6 +77,10 @@ clear() noexcept
   m_right.clear();
 
   m_operator.clear();
+
+  m_type_info.clear();
+
+  m_constant_value.reset();
 }
 
 
@@ -84,8 +98,14 @@ sc_value
 sc_binary_operation::
 evaluate(sc_context&  ctx) const noexcept
 {
-  auto  lti =  m_left.type_info(ctx);
-  auto  rti = m_right.type_info(ctx);
+    if(m_constant_value)
+    {
+      return *m_constant_value;
+    }
+
+
+  auto&  lti =  m_left.type_info();
+  auto&  rti = m_right.type_info();
 
   auto  l = m_left.evaluate(ctx);
   auto  r = m_right.evaluate(ctx);
@@ -144,44 +164,20 @@ result(const sc_type_info&  l, const sc_type_info&  r) noexcept
 }
 
 
-sc_type_info
+void
 sc_binary_operation::
-type_info(const sc_context&  ctx) const noexcept
+fix(const sc_function&  fn) noexcept
 {
-  auto  l =  m_left.type_info(ctx);
-  auto  r = m_right.type_info(ctx);
+   m_left.fix(fn);
+  m_right.fix(fn);
 
-       if(m_operator == u"=" ){return l;}
-  else if(m_operator == u"+="){return l;}
-  else if(m_operator == u"-="){return l;}
-  else if(m_operator == u"*="){return l;}
-  else if(m_operator == u"/="){return l;}
-  else if(m_operator == u"%="){return l;}
-  else if(m_operator == u"<<="){return l;}
-  else if(m_operator == u">>="){return l;}
-  else if(m_operator == u"&="){return l;}
-  else if(m_operator == u"|="){return l;}
-  else if(m_operator == u"^="){return l;}
-  else if(m_operator == u"+"){return result(l,r);}
-  else if(m_operator == u"-"){return result(l,r);}
-  else if(m_operator == u"*"){return result(l,r);}
-  else if(m_operator == u"/"){return result(l,r);}
-  else if(m_operator == u"%"){return result(l,r);}
-  else if(m_operator == u"<<"){return result(l,r);}
-  else if(m_operator == u">>"){return result(l,r);}
-  else if(m_operator == u"|"){return result(l,r);}
-  else if(m_operator == u"&"){return result(l,r);}
-  else if(m_operator == u"^"){return result(l,r);}
-  else if(m_operator == u"&&"){return sc_bool64_ti;}
-  else if(m_operator == u"||"){return sc_bool64_ti;}
-  else if(m_operator == u"=="){return sc_bool64_ti;}
-  else if(m_operator == u"!="){return sc_bool64_ti;}
-  else if(m_operator == u"<" ){return sc_bool64_ti;}
-  else if(m_operator == u"<="){return sc_bool64_ti;}
-  else if(m_operator == u">" ){return sc_bool64_ti;}
-  else if(m_operator == u">="){return sc_bool64_ti;}
+    if(m_left.constant_value() &&
+       m_right.constant_value())
+    {
+      sc_context  ctx(fn.package());
 
-  return sc_type_info();
+      m_constant_value = std::make_unique<sc_value>(evaluate(ctx));
+    }
 }
 
 

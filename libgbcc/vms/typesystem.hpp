@@ -31,7 +31,6 @@ class  sc_struct_definition;
 class   sc_union_definition;
 class    sc_enum_definition;
 
-class  sc_parameter;
 class  sc_signature;
 class  sc_function_pointer_info;
 
@@ -217,19 +216,19 @@ public:
 class
 sc_struct_member
 {
-  sc_type_info  m_type_info;
-
   std::u16string  m_name;
+
+  sc_type_info  m_type_info;
 
   int  m_offset;
 
 public:
-  sc_struct_member(sc_type_info&&  ti, std::u16string_view  name, int  offset) noexcept:
-  m_type_info(std::move(ti)), m_name(name), m_offset(offset){}
-
-  const sc_type_info&  type_info() const noexcept{return m_type_info;}
+  sc_struct_member(std::u16string_view  name, sc_type_info&&  ti, int  offset=0) noexcept:
+  m_name(name), m_type_info(std::move(ti)), m_offset(offset){}
 
   const std::u16string&  name() const noexcept{return m_name;}
+
+  const sc_type_info&  type_info() const noexcept{return m_type_info;}
 
   int  offset() const noexcept{return m_offset;}
 
@@ -339,25 +338,7 @@ public:
 
 
 
-class
-sc_parameter
-{
-  std::u16string  m_name;
-
-  sc_type_info  m_type_info;
-
-public:
-  sc_parameter() noexcept{}
-  sc_parameter(sc_type_info&&  ti) noexcept: m_type_info(std::move(ti)){}
-  sc_parameter(std::u16string_view  name, sc_type_info&&  ti) noexcept: m_name(name), m_type_info(std::move(ti)){}
-
-  const std::u16string&  name() const noexcept{return m_name;}
-
-  const sc_type_info&  type_info() const noexcept{return m_type_info;}
-
-};
-
-
+using sc_parameter = sc_struct_member;
 using sc_parameter_list = std::vector<sc_parameter>;
 
 

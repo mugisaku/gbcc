@@ -16,7 +16,8 @@ namespace gbcc{
 class sc_unary_operation;
 class sc_binary_operation;
 class sc_expression;
-class sc_expression_element;
+class sc_symbol;
+class sc_function;
 class sc_context;
 
 using sc_expression_list = std::vector<sc_expression>;
@@ -118,23 +119,104 @@ public:
 
 
 class
+sc_symbol_attribute
+{
+  int  m_data=0;
+
+  static constexpr int  m_temporary_flag = 1;
+  static constexpr int  m_const_flag     = 2;
+
+public:
+  constexpr sc_symbol_attribute(int  dat=0) noexcept: m_data(dat){}
+
+  constexpr sc_symbol_attribute  add_temporary() const noexcept{return sc_symbol_attribute(m_data|m_temporary_flag);}
+  constexpr sc_symbol_attribute  add_const()  const noexcept{return sc_symbol_attribute(m_data|m_const_flag);}
+
+  constexpr bool  has_temporary() const noexcept{return (m_data&m_temporary_flag);}
+  constexpr bool  has_const()  const noexcept{return (m_data&m_const_flag);}
+
+};
+
+
+class
+sc_symbol
+{
+  std::u16string  m_name;
+
+  sc_type_info  m_type_info;
+
+  int64_t  m_offset=0;
+
+  sc_symbol_attribute  m_attribute;
+
+  static constexpr int  m_asize = sizeof(int64_t);
+
+  static constexpr int64_t  aligned(int64_t  off) noexcept{return (off+(m_asize-1))/m_asize*m_asize;}
+
+public:
+  sc_symbol() noexcept{}
+  sc_symbol(std::u16string_view  name) noexcept: m_name(name){}
+  sc_symbol(std::u16string_view  name, sc_type_info&&  ti) noexcept:
+  m_name(name), m_type_info(std::move(ti)){}
+
+  sc_symbol(std::u16string_view  name, sc_type_info&&  ti, sc_symbol_attribute  attr, int64_t  off) noexcept:
+  m_name(name), m_type_info(std::move(ti)), m_attribute(attr), m_offset(off){}
+
+  sc_symbol(std::u16string_view  name, sc_type_info&&  ti, int64_t  off, sc_symbol_attribute  attr) noexcept:
+  m_name(name), m_type_info(std::move(ti)), m_offset(off), m_attribute(attr){}
+
+  const std::u16string&  name() const noexcept{return m_name;}
+
+  const sc_type_info&  type_info() const noexcept{return m_type_info;}
+
+  int64_t       offset() const noexcept{return m_offset;}
+  int64_t  next_offset() const noexcept{return aligned(m_offset+m_type_info.size());}
+
+  sc_symbol_attribute  attribute() const noexcept{return m_attribute;}
+
+  void  print() const noexcept
+  {
+    gbcc::print(m_name);
+
+    printf(" ");
+
+    m_type_info.print();
+
+    printf(":{offset %6" PRIi64 "} ",m_offset);
+  }
+
+};
+
+
+using sc_symbol_list = std::vector<sc_symbol>;
+
+
+
+
+class
 sc_operand
 {
   enum class kind{
-    null, identifier, expression, value
+    null, identifier, expression, literal, symbol
 
   } m_kind=kind::null;
 
   union data{
-    std::u16string  s;
-
     sc_expression*  e;
 
-    sc_value_with_type_info  v;
+    sc_symbol  sym;
 
     data() noexcept{}
    ~data(){}
   } m_data;
+
+  sc_type_info  m_type_info;
+  
+  std::unique_ptr<sc_value>  m_constant_value;
+
+  void  fix_for_symbol(const sc_symbol&  sym) noexcept;
+  void  fix_for_function(const sc_function&  fn) noexcept;
+  void  fix_for_identifier(const sc_function&  fn) noexcept;
 
 public:
   sc_operand() noexcept{}
@@ -164,170 +246,20 @@ public:
 
   bool  is_identifier() const noexcept{return m_kind == kind::identifier;}
   bool  is_expression() const noexcept{return m_kind == kind::expression;}
-  bool  is_value()      const noexcept{return m_kind == kind::value;}
+  bool  is_symbol()     const noexcept{return m_kind == kind::symbol;}
+  bool  is_literal()    const noexcept{return m_kind == kind::literal;}
 
-  const std::u16string&  string() const noexcept{return m_data.s;}
   const sc_expression&  expression() const noexcept{return *m_data.e;}
 
-  sc_value  value() const noexcept{return m_data.v;}
+  const sc_symbol&  symbol() const noexcept{return m_data.sym;}
 
-  sc_type_info  type_info(const sc_context&  ctx) const noexcept;
+  void  fix(const sc_function&  fn) noexcept;
 
-  sc_value  evaluate(sc_context&  ctx) const noexcept;
+  const sc_type_info&  type_info() const noexcept;
 
-  void  print() const noexcept;
-
-};
-
-
-class
-sc_unary_operation
-{
-public:
-  class  prefix_element;
-  class postfix_element;
-
-  using  prefix_element_list = std::vector<prefix_element>;
-  using postfix_element_list = std::vector<postfix_element>;
-
-private:
-  sc_operand  m_operand;
-
-  postfix_element_list  m_postfix_elements;
-  prefix_element_list    m_prefix_elements;
-
-  static sc_type_info  operate_type_info(const sc_type_info&  ti, const postfix_element&  e) noexcept;
-  static sc_type_info  operate_type_info(const sc_type_info&  ti, const prefix_element&   e) noexcept;
-
-  static sc_value  operate_value(sc_value  v, const sc_type_info&  ti, const postfix_element&  e, sc_context&  ctx) noexcept;
-  static sc_value  operate_value(sc_value  v, const sc_type_info&  ti, const prefix_element&   e, sc_context&  ctx) noexcept;
-
-public:
-  sc_unary_operation() noexcept{}
-  sc_unary_operation(sc_value  v, const sc_type_info&  ti) noexcept: m_operand(v,ti){}
-  sc_unary_operation(const sc_operand&   o) noexcept: m_operand(o){}
-  sc_unary_operation(      sc_operand&&  o) noexcept: m_operand(std::move(o)){}
-  sc_unary_operation(prefix_element_list&&  prels, sc_operand&&  o, postfix_element_list&&  postls) noexcept{assign(std::move(prels),std::move(o),std::move(postls));}
-
-  sc_unary_operation&  assign(prefix_element_list&&  prels, sc_operand&&  o, postfix_element_list&&  postls) noexcept;
-
-  const sc_operand&  operand() const noexcept{return m_operand;}
-
-  const postfix_element_list&  postfix_elements() const noexcept{return m_postfix_elements;}
-  const prefix_element_list&    prefix_elements() const noexcept{return  m_prefix_elements;}
-
-  sc_type_info  type_info(const sc_context&  ctx) const noexcept;
+  const sc_value*  constant_value() const noexcept;
 
   sc_value  evaluate(sc_context&  ctx) const noexcept;
-
-  void  print() const noexcept;
-
-};
-
-
-class
-sc_unary_operation::
-postfix_element
-{
-  enum class kind{
-    null, call, index, access, increment, decrement,
-  } m_kind=kind::null;
-
-  union data{
-    sc_expression_list  exprls;
-    sc_expression*      expr;
-    std::u16string      s;
-
-    data() noexcept{}
-   ~data(){}
-
-  } m_data;
-
-public:
-  postfix_element() noexcept{}
- ~postfix_element(){clear();}
-
-  template<class...  Args>
-  postfix_element(Args&&...  args) noexcept{assign(std::forward<Args>(args)...);}
-
-  postfix_element(const postfix_element&   rhs) noexcept{assign(rhs);}
-  postfix_element(      postfix_element&&  rhs) noexcept{assign(std::move(rhs));}
-
-  template<class...  Args>
-  postfix_element&  operator=(Args&&...  args) noexcept{return assign(std::forward<Args>(args)...);}
-
-  postfix_element&  operator=(const postfix_element&   rhs) noexcept{return assign(rhs);}
-  postfix_element&  operator=(      postfix_element&&  rhs) noexcept{return assign(std::move(rhs));}
-
-  postfix_element&  assign(const postfix_element&   rhs) noexcept;
-  postfix_element&  assign(      postfix_element&&  rhs) noexcept;
-  postfix_element&  assign(sc_expression_list&&  exprls) noexcept;
-  postfix_element&  assign(sc_expression&&  expr) noexcept;
-  postfix_element&  assign(std::u16string_view  sv) noexcept;
-  postfix_element&  assign(std::string_view  sv) noexcept;
-
-  void  clear() noexcept;
-
-  bool  is_call()      const noexcept{return m_kind == kind::call;}
-  bool  is_index()     const noexcept{return m_kind == kind::index;}
-  bool  is_access()    const noexcept{return m_kind == kind::access;}
-  bool  is_increment() const noexcept{return m_kind == kind::increment;}
-  bool  is_decrement() const noexcept{return m_kind == kind::decrement;}
-
-  const sc_expression_list&  expression_list() const noexcept{return  m_data.exprls;}
-  const sc_expression&            expression() const noexcept{return *m_data.expr;}
-  const std::u16string&               string() const noexcept{return  m_data.s;}
-
-  void  print() const noexcept;
-
-};
-
-
-class
-sc_unary_operation::
-prefix_element
-{
-  enum class kind{
-    null,
-    address,
-    dereference,
-    increment,
-    decrement,
-    logical_not,
-    bitwise_not,
-    neg,
-    
-  } m_kind=kind::null;
-
-public:
-  prefix_element() noexcept{}
- ~prefix_element(){clear();}
-
-  void  clear() noexcept;
-
-  template<class...  Args>
-  prefix_element(Args&&...  args) noexcept{assign(std::forward<Args>(args)...);}
-
-  prefix_element(const prefix_element&   rhs) noexcept{assign(rhs);}
-  prefix_element(      prefix_element&&  rhs) noexcept{assign(std::move(rhs));}
-
-  template<class...  Args>
-  prefix_element&  operator=(Args&&...  args) noexcept{return assign(std::forward<Args>(args)...);}
-
-  prefix_element&  operator=(const prefix_element&   rhs) noexcept{return assign(rhs);}
-  prefix_element&  operator=(      prefix_element&&  rhs) noexcept{return assign(std::move(rhs));}
-
-  prefix_element&  assign(const prefix_element&   rhs) noexcept;
-  prefix_element&  assign(      prefix_element&&  rhs) noexcept;
-  prefix_element&  assign(std::string_view  sv) noexcept;
-
-  bool  is_logical_not() const noexcept{return m_kind == kind::logical_not;}
-  bool  is_bitwise_not() const noexcept{return m_kind == kind::bitwise_not;}
-  bool  is_neg()         const noexcept{return m_kind == kind::neg;}
-  bool  is_address()     const noexcept{return m_kind == kind::address;}
-  bool  is_dereference() const noexcept{return m_kind == kind::dereference;}
-  bool  is_increment()   const noexcept{return m_kind == kind::increment;}
-  bool  is_decrement()   const noexcept{return m_kind == kind::decrement;}
 
   void  print() const noexcept;
 
@@ -340,10 +272,12 @@ class
 sc_expression
 {
   enum class kind{
-    null, unary, binary,
+    null, operand, unary, binary,
   } m_kind=kind::null;
 
   union data{
+    sc_operand  o;
+
     sc_unary_operation*    unop;
     sc_binary_operation*  binop;
 
@@ -353,13 +287,18 @@ sc_expression
   } m_data;
 
 
-  static std::vector<sc_expression_element>  make_stack(const syntax_branch_element*  it, const syntax_branch_element*  end_it) noexcept;
+  static sc_operand          construct_operand(const syntax_branch&  br) noexcept;
+  static sc_expression_list  construct_argument_list(const syntax_branch&  br) noexcept;
+  static sc_unary_operation  construct_unary_operation(const syntax_branch&  br) noexcept;
 
-  static sc_unary_operation::prefix_element   construct_prefix_element(const syntax_branch&  br) noexcept;
-  static sc_operand                           construct_operand(const syntax_branch&  br) noexcept;
-  static sc_expression_list                   construct_argument_list(const syntax_branch&  br) noexcept;
-  static sc_unary_operation::postfix_element  construct_postfix_element(const syntax_branch&  br) noexcept;
-  static sc_unary_operation                   construct_unary_operation(const syntax_branch&  br) noexcept;
+  static sc_unary_operation  make_prefix_unary_operation(const syntax_branch&  br, sc_unary_operation&&  src) noexcept;
+  static sc_unary_operation  make_postfix_unary_operation(const syntax_branch&  br, sc_unary_operation&&  src) noexcept;
+
+  class element;
+
+  static void  process(const syntax_branch_element*&  it, std::vector<element>&  stk, std::u16string_view&  assop, std::u16string_view&  opbuf) noexcept;
+
+  static std::vector<element>  make_stack(const syntax_branch_element*  it, const syntax_branch_element*  end_it) noexcept;
 
 public:
   sc_expression() noexcept{}
@@ -391,10 +330,15 @@ public:
 
   void  clear() noexcept;
 
-  bool  is_unary()  const noexcept{return m_kind == kind::unary;}
-  bool  is_binary() const noexcept{return m_kind == kind::binary;}
+  bool  is_operand() const noexcept{return m_kind == kind::operand;}
+  bool  is_unary()   const noexcept{return m_kind == kind::unary;}
+  bool  is_binary()  const noexcept{return m_kind == kind::binary;}
 
-  sc_type_info  type_info(const sc_context&  ctx) const noexcept;
+  void  fix(const sc_function&  fn) noexcept;
+
+  const sc_type_info&  type_info() const noexcept;
+
+  const sc_value*  constant_value() const noexcept;
 
   sc_value  evaluate(sc_context&  ctx) const noexcept;
 
@@ -403,29 +347,96 @@ public:
 };
 
 
+
+
 class
-sc_expression_element
+sc_unary_operation
 {
-  std::u16string  m_operator;
+  enum class kind{
+    null,
+    nop,
+    call,
+    index,
+    access,
+    postfix_increment,
+    postfix_decrement,
+    address,
+    dereference,
+    prefix_increment,
+    prefix_decrement,
+    logical_not,
+    bitwise_not,
+    neg,
+
+  } m_kind=kind::null;
+
+  union data{
+    sc_expression_list  exprls;
+    sc_expression*      expr;
+    std::u16string      s;
+
+    data() noexcept{}
+   ~data(){}
+
+  } m_data;
+
 
   sc_expression  m_expression;
 
+  sc_type_info  m_type_info;
+
+  std::unique_ptr<sc_value>  m_constant_value;
+
 public:
-  sc_expression_element() noexcept{}
+  sc_unary_operation() noexcept{}
+  sc_unary_operation(sc_value  v, const sc_type_info&  ti) noexcept: m_expression(sc_operand(v,ti)){}
+  sc_unary_operation(const sc_unary_operation&   rhs) noexcept{assign(rhs);}
+  sc_unary_operation(      sc_unary_operation&&  rhs) noexcept{assign(std::move(rhs));}
+ ~sc_unary_operation(){clear();}
 
   template<class...  Args>
-  sc_expression_element(Args&&...  args) noexcept{assign(std::forward<Args>(args)...);}
+  sc_unary_operation(Args&&...  args) noexcept{assign(std::forward<Args>(args)...);}
 
-  sc_expression_element&  assign(sc_expression&&  expr) noexcept;
-  sc_expression_element&  assign(std::u16string_view  oprt) noexcept;
-  sc_expression_element&  assign(const std::u16string&  oprt) noexcept{return assign(std::u16string_view(oprt));}
+  void  clear() noexcept;
 
-  bool  is_operator()   const noexcept{return m_operator.size();}
-  bool  is_expression() const noexcept{return !is_operator();}
+  sc_unary_operation&  assign(const sc_unary_operation&   rhs) noexcept;
+  sc_unary_operation&  assign(      sc_unary_operation&&  rhs) noexcept;
+  sc_unary_operation&  assign(sc_expression&&  e) noexcept;
+  sc_unary_operation&  assign(sc_expression&&  e, sc_expression_list&&  exprls) noexcept;
+  sc_unary_operation&  assign(sc_expression&&  e, sc_expression&&  expr) noexcept;
+  sc_unary_operation&  assign(sc_expression&&  e, std::u16string_view  sv) noexcept;
+  sc_unary_operation&  assign(sc_expression&&  e, std::string_view  sv) noexcept;
 
-  const std::u16string&  operator_() const noexcept{return m_operator;}
+  bool  is_nop()               const noexcept{return m_kind == kind::nop;}
+  bool  is_call()              const noexcept{return m_kind == kind::call;}
+  bool  is_index()             const noexcept{return m_kind == kind::index;}
+  bool  is_access()            const noexcept{return m_kind == kind::access;}
+  bool  is_postfix_increment() const noexcept{return m_kind == kind::postfix_increment;}
+  bool  is_postfix_decrement() const noexcept{return m_kind == kind::postfix_decrement;}
+  bool  is_logical_not()       const noexcept{return m_kind == kind::logical_not;}
+  bool  is_bitwise_not()       const noexcept{return m_kind == kind::bitwise_not;}
+  bool  is_neg()               const noexcept{return m_kind == kind::neg;}
+  bool  is_address()           const noexcept{return m_kind == kind::address;}
+  bool  is_dereference()       const noexcept{return m_kind == kind::dereference;}
+  bool  is_prefix_increment()  const noexcept{return m_kind == kind::prefix_increment;}
+  bool  is_prefix_decrement()  const noexcept{return m_kind == kind::prefix_decrement;}
 
-  sc_expression&  expression() noexcept{return m_expression;}
+
+  const sc_expression_list&  expression_list() const noexcept{return  m_data.exprls;}
+  const sc_expression&  expression_for_index() const noexcept{return *m_data.expr;}
+  const std::u16string&               string() const noexcept{return  m_data.s;}
+
+  const sc_expression&  expression() const noexcept{return m_expression;}
+
+  void  fix(const sc_function&  fn) noexcept;
+
+  const sc_type_info&  type_info() const noexcept{return m_type_info;}
+
+  const sc_value*  constant_value() const noexcept{return m_constant_value.get();}
+
+  sc_value  evaluate(sc_context&  ctx) const noexcept;
+
+  void  print() const noexcept;
 
 };
 
@@ -439,6 +450,10 @@ sc_binary_operation
   sc_expression  m_right;
 
   std::u16string  m_operator;
+
+  sc_type_info  m_type_info;
+
+  std::unique_ptr<sc_value>  m_constant_value;
 
   class functor{
     sc_value  m_l_value;
@@ -507,14 +522,17 @@ public:
 
   const std::u16string&  operator_() const noexcept{return m_operator;}
 
-  sc_type_info  type_info(const sc_context&  ctx) const noexcept;
+  void  fix(const sc_function&  fn) noexcept;
+
+  const sc_type_info&  type_info() const noexcept{return m_type_info;}
+
+  const sc_value*  constant_value() const noexcept{return m_constant_value.get();}
 
   sc_value  evaluate(sc_context&  ctx) const noexcept;
 
   void  print() const noexcept;
 
 };
-
 
 
 

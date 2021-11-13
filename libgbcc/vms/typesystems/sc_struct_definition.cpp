@@ -36,7 +36,7 @@ push(sc_type_info&&  ti, std::u16string_view  name) noexcept
   m_size  = offset+sz;
   m_align = std::max(m_align,align);
 
-  m_member_list.emplace_back(std::move(ti),name,offset);
+  m_member_list.emplace_back(name,std::move(ti),offset);
 }
 
 

@@ -13,6 +13,8 @@ namespace gbcc{
 
 
 class sc_statement;
+class sc_package;
+class sc_function;
 
 using sc_statement_list = std::vector<sc_statement>;
 
@@ -20,93 +22,49 @@ using sc_statement_list = std::vector<sc_statement>;
 class
 sc_block
 {
+  sc_function*  m_function;
+
+  enum class kind{
+    plain, if_, while_, switch_,
+  } m_kind;
+
+  sc_expression  m_condition;
+
   sc_statement_list  m_statement_list;
 
 public:
   sc_block() noexcept{}
-  sc_block(sc_statement_list&&  ls) noexcept: m_statement_list(std::move(ls)){}
 
+  void  reset(sc_function&  fn, std::string_view  k) noexcept;
+
+  const sc_function&  function() const noexcept{return *m_function;}
+
+  template<class...  Args>
+  sc_statement&  emplace_back(Args&&...  args) noexcept{return m_statement_list.emplace_back(std::forward<Args>(args)...);}
+
+  bool  is_plain() const noexcept{return m_kind == kind::plain;}
+  bool  is_if()    const noexcept{return m_kind == kind::if_;}
+  bool  is_while() const noexcept{return m_kind == kind::while_;}
+  bool  is_switch() const noexcept{return m_kind == kind::switch_;}
+
+  void  add_condition(sc_expression&&  e) noexcept{m_condition = std::move(e);}
+
+  const sc_expression&  condition() const noexcept{return m_condition;}
+
+        sc_statement_list&  statement_list()       noexcept{return m_statement_list;}
   const sc_statement_list&  statement_list() const noexcept{return m_statement_list;}
 
   const sc_statement*  begin() const noexcept;
   const sc_statement*    end() const noexcept;
+
+  void  fix(const sc_function&  fn) noexcept;
 
   void  print(int  depth=0) const noexcept;
 
 };
 
 
-class
-sc_conditional_block: public sc_block
-{
-  sc_expression  m_expression;
-
-public:
-  sc_conditional_block() noexcept{}
-  sc_conditional_block(sc_expression&&  e, sc_block&&  blk) noexcept: m_expression(std::move(e)), sc_block(std::move(blk)){}
-
-  const sc_expression&  expression() const noexcept{return m_expression;}
-
-  void  print(int  depth=0) const noexcept
-  {
-      if(m_expression)
-      {
-        printf("(");
-
-        m_expression.print();
-
-        printf(")\n");
-      }
-
-
-    sc_block::print(depth);
-  }
-
-};
-
-
-using sc_conditional_block_list = std::vector<sc_conditional_block>;
-
-
-class
-sc_if
-{
-  sc_conditional_block_list  m_block_list;
-
-public:
-  sc_if() noexcept{}
-  sc_if(sc_conditional_block_list&&  ls) noexcept: m_block_list(std::move(ls)){}
-
-  sc_conditional_block_list  operator*() noexcept{return std::move(m_block_list);}
-
-};
-
-
-class
-sc_while: public sc_conditional_block
-{
-public:
-  using sc_conditional_block::sc_conditional_block;
-
-};
-
-
-class
-sc_for: public sc_conditional_block
-{
-public:
-  using sc_conditional_block::sc_conditional_block;
-
-};
-
-
-class
-sc_switch: public sc_conditional_block
-{
-public:
-  using sc_conditional_block::sc_conditional_block;
-
-};
+using sc_block_list = std::vector<std::unique_ptr<sc_block>>;
 
 
 struct sc_break{};
@@ -170,21 +128,18 @@ public:
 
 
 class
-sc_var
+sc_variable
 {
-  std::u16string   m_name;
-
-  sc_type_info  m_type_info;
-
+  sc_symbol          m_symbol;
   sc_expression  m_expression;
 
 public:
-  sc_var() noexcept{}
-  sc_var(std::u16string_view  name, sc_type_info&&  ti, sc_expression&&  e) noexcept: m_type_info(std::move(ti)), m_name(name), m_expression(std::move(e)){}
+  sc_variable() noexcept{}
+  sc_variable(const sc_symbol&  sym) noexcept: m_symbol(sym){}
+  sc_variable(const sc_symbol&  sym, sc_expression&&  e) noexcept: m_symbol(sym), m_expression(std::move(e)){}
 
-  const std::u16string&  name() const noexcept{return m_name;}
-
-  const sc_type_info&  type_info() const noexcept{return m_type_info;}
+        sc_symbol&  symbol()       noexcept{return m_symbol;}
+  const sc_symbol&  symbol() const noexcept{return m_symbol;}
 
         sc_expression&  expression()       noexcept{return m_expression;}
   const sc_expression&  expression() const noexcept{return m_expression;}
@@ -192,13 +147,7 @@ public:
 };
 
 
-class
-sc_const: public sc_var
-{
-public:
-  using sc_var::sc_var;
-
-};
+using sc_variable_list = std::vector<sc_variable>;
 
 
 class
@@ -212,9 +161,6 @@ sc_statement
     goto_,
     label,
     if_,
-    for_,
-    while_,
-    switch_,
     case_,
     default_,
     var,
@@ -227,13 +173,13 @@ sc_statement
   union data{
     std::u16string  s;
 
-    sc_block                      blk;
-    sc_conditional_block         cblk;
-    sc_conditional_block_list  cblkls;
+    std::unique_ptr<sc_block>  blk;
+
+    sc_block_list  blkls;
 
     sc_expression  expr;
 
-    sc_var  var;
+    sc_variable  var;
 
     data() noexcept{}
    ~data(){}
@@ -243,35 +189,31 @@ public:
   sc_statement() noexcept{}
  ~sc_statement(){clear();}
 
-  sc_statement(const sc_statement&   rhs) noexcept{assign(rhs);}
+  sc_statement(const sc_statement&   rhs) noexcept=delete;/*{assign(rhs);}*/
   sc_statement(      sc_statement&&  rhs) noexcept{assign(std::move(rhs));}
 
   template<class...  Args>
   sc_statement(Args&&...  args) noexcept{assign(std::forward<Args>(args)...);}
 
-  sc_statement&  operator=(const sc_statement&   rhs) noexcept{return assign(rhs);}
+//  sc_statement&  operator=(const sc_statement&   rhs) noexcept{return assign(rhs);}
   sc_statement&  operator=(      sc_statement&&  rhs) noexcept{return assign(std::move(rhs));}
 
   template<class...  Args>
   sc_statement&  operator=(Args&&...  args) noexcept{return assign(std::forward<Args>(args)...);}
 
-  sc_statement&  assign(const sc_statement&   rhs) noexcept;
+/*  sc_statement&  assign(const sc_statement&   rhs) noexcept;*/
   sc_statement&  assign(      sc_statement&&  rhs) noexcept;
   sc_statement&  assign(sc_return&&  ret) noexcept;
   sc_statement&  assign(sc_break&&  brk) noexcept;
   sc_statement&  assign(sc_continue&&  ctn) noexcept;
   sc_statement&  assign(sc_label&&  lb) noexcept;
   sc_statement&  assign(sc_goto&&  gt) noexcept;
-  sc_statement&  assign(sc_if&&  i) noexcept;
-  sc_statement&  assign(sc_while&&  wh) noexcept;
-  sc_statement&  assign(sc_for&&  fo) noexcept;
-  sc_statement&  assign(sc_switch&&  sw) noexcept;
   sc_statement&  assign(sc_case&&  ca) noexcept;
   sc_statement&  assign(sc_default&&  de) noexcept;
-  sc_statement&  assign(sc_block&&  blk) noexcept;
+  sc_statement&  assign(std::unique_ptr<sc_block>&&  blk) noexcept;
+  sc_statement&  assign(sc_block_list&&  blkls) noexcept;
   sc_statement&  assign(sc_expression&&  e) noexcept;
-  sc_statement&  assign(sc_var&&  v) noexcept;
-  sc_statement&  assign(sc_const&&  c) noexcept;
+  sc_statement&  assign(sc_variable&&  v) noexcept;
 
   void  clear() noexcept;
 
@@ -281,11 +223,7 @@ public:
   bool  is_goto()     const noexcept{return m_kind == kind::goto_;}
   bool  is_label()    const noexcept{return m_kind == kind::label;}
   bool  is_if()       const noexcept{return m_kind == kind::if_;}
-  bool  is_while()    const noexcept{return m_kind == kind::while_;}
-  bool  is_for()      const noexcept{return m_kind == kind::for_;}
   bool  is_var()      const noexcept{return m_kind == kind::var;}
-  bool  is_const()    const noexcept{return m_kind == kind::const_;}
-  bool  is_switch()   const noexcept{return m_kind == kind::switch_;}
   bool  is_case()     const noexcept{return m_kind == kind::case_;}
   bool  is_default()  const noexcept{return m_kind == kind::default_;}
   bool  is_block()      const noexcept{return m_kind == kind::block;}
@@ -293,14 +231,18 @@ public:
 
   const std::u16string&  string() const noexcept{return m_data.s;}
 
-  const sc_block&                                    block() const noexcept{return m_data.blk;}
-  const sc_conditional_block&            conditional_block() const noexcept{return m_data.cblk;}
-  const sc_conditional_block_list&  conditional_block_list() const noexcept{return m_data.cblkls;}
+        sc_block&  block()       noexcept{return *m_data.blk;}
+  const sc_block&  block() const noexcept{return *m_data.blk;}
 
-  const sc_var&       var() const noexcept{return m_data.var;}
-  const sc_const&  const_() const noexcept{return static_cast<const sc_const&>(m_data.var);}
+        sc_block_list&  block_list()       noexcept{return m_data.blkls;}
+  const sc_block_list&  block_list() const noexcept{return m_data.blkls;}
+
+        sc_variable&  variable()       noexcept{return m_data.var;}
+  const sc_variable&  variable() const noexcept{return m_data.var;}
 
   const sc_expression&  expression() const noexcept{return m_data.expr;}
+
+  void  fix(const sc_function&  fn) noexcept;
 
   void  print(int  depth=0) const noexcept;
 
@@ -313,152 +255,42 @@ using sc_statement_list = std::vector<sc_statement>;
 
 
 class
-sc_constant
-{
-  std::u16string  m_name;
-
-  sc_type_info  m_type_info;
-
-  sc_value  m_value;
-
-public:
-  sc_constant() noexcept{}
-  sc_constant(std::u16string_view  name, sc_value  v) noexcept: m_name(name), m_value(v){}
-
-  sc_constant&  assign(std::u16string_view  name, sc_value  v) noexcept{
-    m_name = name;
-    m_value = v;
-    return *this;
-  }
-
-  const std::u16string&  name() const noexcept{return m_name;}
-
-  sc_value  value() const noexcept{return m_value;}
-
-  void  print() const noexcept{
-    gbcc::print(m_name);
-    printf("(");
-    m_value.print(m_type_info);
-    printf(")");
-  }
-
-};
-
-
-using sc_constant_list = std::vector<sc_constant>;
-
-
-class
-sc_symbol_attribute
-{
-  int  m_data=0;
-
-  static constexpr int  m_temporary_flag = 1;
-  static constexpr int  m_const_flag     = 2;
-
-public:
-  constexpr sc_symbol_attribute(int  dat=0) noexcept: m_data(dat){}
-
-  constexpr sc_symbol_attribute  add_temporary() const noexcept{return sc_symbol_attribute(m_data|m_temporary_flag);}
-  constexpr sc_symbol_attribute  add_const()  const noexcept{return sc_symbol_attribute(m_data|m_const_flag);}
-
-  constexpr bool  has_temporary() const noexcept{return (m_data&m_temporary_flag);}
-  constexpr bool  has_const()  const noexcept{return (m_data&m_const_flag);}
-
-};
-
-
-class
-sc_symbol
-{
-  std::u16string  m_name;
-
-  sc_type_info  m_type_info;
-
-  int64_t  m_offset=0;
-
-  sc_symbol_attribute  m_attribute;
-
-  sc_expression  m_expression;
-
-  static constexpr int  m_asize = sizeof(int64_t);
-
-  static constexpr int64_t  aligned(int64_t  off) noexcept{return (off+(m_asize-1))/m_asize*m_asize;}
-
-public:
-  sc_symbol() noexcept{}
-  sc_symbol(std::u16string_view  name, sc_type_info&&  ti, int64_t  off, sc_symbol_attribute  attr) noexcept:
-  m_name(name), m_type_info(std::move(ti)), m_offset(off), m_attribute(attr){}
-
-  const std::u16string&  name() const noexcept{return m_name;}
-
-  const sc_type_info&  type_info() const noexcept{return m_type_info;}
-
-  int64_t       offset() const noexcept{return m_offset;}
-  int64_t  next_offset() const noexcept{return aligned(m_offset+m_type_info.size());}
-
-  sc_symbol_attribute  attribute() const noexcept{return m_attribute;}
-
-  void  add_expression(sc_expression&&  e) noexcept{m_expression = std::move(e);}
-
-  const sc_expression&  expression() const noexcept{return m_expression;}
-
-  void  print() const noexcept
-  {
-    gbcc::print(m_name);
-
-    printf(" ");
-
-    m_type_info.print();
-
-    printf("(%6" PRIi64 ") ",m_offset);
-
-    m_expression.print();
-  }
-
-};
-
-
-using sc_symbol_list = std::vector<sc_symbol>;
-
-
-
-
-class
 sc_function
 {
+  sc_package*  m_package=nullptr;
+
   std::u16string  m_name;
 
   sc_signature  m_signature;
 
-  sc_block  m_block;
+  std::unique_ptr<sc_block>  m_block;
 
   sc_symbol_list  m_symbol_list;
 
   int  m_entry_number=-1;
 
-  void  scan(const sc_block&  blk) noexcept;
-
-  void  push(const sc_type_info&  ti, std::u16string_view  name, sc_symbol_attribute  attr) noexcept;
+  void  scan(sc_block&  blk) noexcept;
 
 public:
   sc_function() noexcept{}
-  sc_function(std::u16string_view  name, sc_type_info&&  ti, sc_parameter_list&&  parals, sc_block&&  blk) noexcept:
-  m_name(name), m_signature(std::move(ti),std::move(parals)), m_block(std::move(blk)){update_symbol_list();}
+
+  sc_function&  assign(sc_package&  pk, std::u16string_view  name, sc_type_info&&  ti, sc_parameter_list&&  parals, std::unique_ptr<sc_block>&&  blk) noexcept;
+
+  const sc_package&  package() const noexcept{return *m_package;}
 
   const std::u16string&  name() const noexcept{return m_name;}
 
   const sc_signature&  signature() const noexcept{return m_signature;}
 
-  const sc_block&  block() const noexcept{return m_block;}
+  const sc_block&  block() const noexcept{return *m_block;}
 
   const sc_symbol_list&  symbol_list() const noexcept{return m_symbol_list;}
 
-  void  set_entry_number(int  n) noexcept{m_entry_number = n;}
+  const sc_symbol*  find_symbol(std::u16string_view  name) const noexcept;
 
   int  entry_number() const noexcept{return m_entry_number;}
 
-  void  update_symbol_list() noexcept;
+  void  fix() noexcept;
 
   int  stack_size() const noexcept;
 
@@ -467,7 +299,7 @@ public:
 };
 
 
-using sc_function_list = std::vector<sc_function>;
+using sc_function_list = std::vector<std::unique_ptr<sc_function>>;
 
 
 
@@ -497,105 +329,164 @@ public:
 
 
 
+
+class
+sc_package
+{
+  sc_function_list  m_function_list;
+  sc_variable_list  m_variable_list;
+
+  static sc_return                  construct_return(const syntax_branch&  br) noexcept;
+  static std::unique_ptr<sc_block>   construct_while(const syntax_branch&  br, sc_function&  fn) noexcept;
+  static std::unique_ptr<sc_block>  construct_switch(const syntax_branch&  br, sc_function&  fn) noexcept;
+  static sc_case                      construct_case(const syntax_branch&  br) noexcept;
+  static sc_block_list                  construct_if(const syntax_branch&  br, sc_function&  fn) noexcept;
+  static sc_label                    construct_label(const syntax_branch&  br) noexcept;
+  static sc_goto                      construct_goto(const syntax_branch&  br) noexcept;
+  static sc_variable              construct_variable(const syntax_branch&  br) noexcept;
+  static std::unique_ptr<sc_block>   construct_block(const syntax_branch&  br, sc_function&  fn, std::string_view  k) noexcept;
+  static sc_parameter            construct_parameter(const syntax_branch&  br, int64_t  off) noexcept;
+  static sc_parameter_list  construct_parameter_list(const syntax_branch&  br) noexcept;
+  static sc_type_info            construct_type_info(const syntax_branch&  br) noexcept;
+
+  static std::unique_ptr<sc_function>  construct_function(const syntax_branch&  br, sc_package&  pk) noexcept;
+
+public:
+  sc_package() noexcept{}
+  sc_package(const syntax_branch&  br) noexcept{assign(br);}
+
+  sc_package&  operator=(const syntax_branch&  br) noexcept{return assign(br);}
+
+  sc_package&  assign(const syntax_branch&  br) noexcept;
+
+  void  clear() noexcept;
+
+  int  stack_size() const noexcept;
+
+  const sc_function*  find_function(std::u16string_view  name) const noexcept;
+  const sc_symbol*      find_symbol(std::u16string_view  name) const noexcept;
+
+  const sc_function_list&  function_list() const noexcept{return m_function_list;}
+  const sc_variable_list&  variable_list() const noexcept{return m_variable_list;}
+
+  void  print() const noexcept;
+
+};
+
+
+
+
+class
+sc_status
+{
+  uint64_t  m_data;
+
+public:
+  sc_status(uint64_t  d=0) noexcept: m_data(d){}
+
+  uint64_t  test(uint64_t  flags) const noexcept{return m_data&flags;}
+  uint64_t  data(               ) const noexcept{return m_data;}
+
+  sc_status&    set(uint64_t  flags) noexcept{  m_data |=  flags;  return *this;}
+  sc_status&  unset(uint64_t  flags) noexcept{  m_data &= ~flags;  return *this;}
+
+  void  reset(uint64_t  flags=0) noexcept{m_data = flags;}
+
+};
+
+
+class
+sc_block_execution_frame
+{
+  const sc_statement*  m_begin;
+  const sc_statement*  m_current;
+  const sc_statement*  m_end;
+
+  const sc_expression*  m_condition=nullptr;
+
+public:
+  sc_block_execution_frame(const sc_block&  blk) noexcept:
+  m_begin(blk.begin()), m_current(blk.begin()), m_end(blk.end()){}
+
+  operator bool() const noexcept{return m_current < m_end;}
+
+  const sc_statement&  operator*() noexcept{return *m_current++;}
+
+  bool  test_condition(sc_context&  ctx) const noexcept{return m_condition && m_condition->evaluate(ctx).integer();}
+  bool   has_condition(                ) const noexcept{return m_condition;}
+
+  void  rewind() noexcept{m_current = m_begin;}
+
+};
+
+
+class
+sc_function_execution_frame
+{
+  int64_t  m_memory_size;
+
+  const sc_function*  m_function;
+
+  std::vector<sc_block_execution_frame>  m_bef_stack;
+
+  struct flag{
+    static constexpr uint64_t  returned = 1;
+  };
+
+  sc_status  m_status;
+
+  void  process(const sc_statement&  st, sc_context&  ctx, sc_value_with_type_info&  ret_v) noexcept;
+
+  void  process_return(sc_value  v, const sc_type_info&  ti, sc_value_with_type_info&  ret_v, sc_context&  ctx) noexcept;
+  void  process_while(const sc_block&  blk, sc_context&  ctx) noexcept;
+//  void  process_for() noexcept;
+  void  process_switch(const sc_block&  blk) noexcept;
+  void  process_goto(std::u16string_view  dst) noexcept;
+  void  process_if(const sc_block_list&  blkls, sc_context&  ctx) noexcept;
+  void  process_break() noexcept;
+  void  process_continue() noexcept;
+  void  process_block(const sc_block&  blk) noexcept;
+  void  process_variable(const sc_variable&  v, sc_context&  ctx) noexcept;
+
+  void  exit_from_block() noexcept;
+
+public:
+  sc_function_execution_frame(const sc_function&  fn, int64_t  memsize) noexcept;
+
+  void  operator()(sc_context&  ctx, sc_value_with_type_info&  ret_v) noexcept;
+
+  int64_t  previous_memory_size() const noexcept{return m_memory_size;}
+
+  bool  is_returned() const noexcept{return m_status.test(flag::returned);;}
+
+  void  print() const noexcept;
+
+};
+
+
+
+
 class
 sc_context
 {
+  const sc_package*  m_package=nullptr;
+
   std::vector<uint8_t>  m_memory;
 
   int64_t  m_memory_size=0;
 
-  sc_function_list  m_function_list;
-  sc_constant_list  m_constant_list;
-
-  sc_symbol_list  m_symbol_list;
-
-  struct running{
-    const sc_statement*  m_begin;
-    const sc_statement*  m_current;
-    const sc_statement*  m_end;
-
-    const sc_expression*  m_condition=nullptr;
-    const sc_expression*  m_step=nullptr;
-
-    running(const sc_block&  blk) noexcept:
-    m_begin(blk.begin()), m_current(blk.begin()), m_end(blk.end()){}
-
-    running(const sc_conditional_block&  cblk) noexcept:
-    m_begin(cblk.begin()), m_current(cblk.begin()), m_end(cblk.end()), m_condition(&cblk.expression()){}
-
-    void  rewind() noexcept{m_current = m_begin;}
-
-  };
-
-  struct frame{
-    int64_t  m_memory_size;
-
-    const sc_function*  m_function;
-
-    std::vector<running>  m_running_stack;
-
-    frame(const sc_function&  fn, int64_t  memsize) noexcept;
-
-  };
-
-
-  std::vector<frame>  m_frame_stack;
+  std::vector<sc_function_execution_frame>  m_fef_stack;
 
   sc_value_with_type_info  m_returned_value;
 
   bool  m_halt_flag;
 
-  static sc_return                  construct_return(const syntax_branch&  br) noexcept;
-  static sc_for                        construct_for(const syntax_branch&  br) noexcept;
-  static sc_while                    construct_while(const syntax_branch&  br) noexcept;
-  static sc_switch                  construct_switch(const syntax_branch&  br) noexcept;
-  static sc_case                      construct_case(const syntax_branch&  br) noexcept;
-  static sc_if                          construct_if(const syntax_branch&  br) noexcept;
-  static sc_label                    construct_label(const syntax_branch&  br) noexcept;
-  static sc_goto                      construct_goto(const syntax_branch&  br) noexcept;
-  static sc_var                        construct_var(const syntax_branch&  br) noexcept;
-  static sc_const                    construct_const(const syntax_branch&  br) noexcept;
-  static sc_block                    construct_block(const syntax_branch&  br) noexcept;
-  static sc_parameter            construct_parameter(const syntax_branch&  br) noexcept;
-  static sc_parameter_list  construct_parameter_list(const syntax_branch&  br) noexcept;
-  static sc_type_info            construct_type_info(const syntax_branch&  br) noexcept;
-  static sc_function              construct_function(const syntax_branch&  br) noexcept;
-
-  void  process(const sc_statement&  st) noexcept;
-
-  void  process_return(sc_value  v=sc_value(), const sc_type_info&  ti=sc_undef_ti) noexcept;
-  void  process_while(const sc_conditional_block&  cblk) noexcept;
-//  void  process_for() noexcept;
-  void  process_switch(const sc_conditional_block&  cblk) noexcept;
-  void  process_goto(std::u16string_view  dst) noexcept;
-  void  process_if(const sc_conditional_block_list&  cblkls) noexcept;
-  void  process_break() noexcept;
-  void  process_continue() noexcept;
-  void  process_block(const sc_block&  blk) noexcept;
-  void  process_var(const sc_var&  v) noexcept;
-  void  process_const(const sc_const&  c) noexcept;
-
-  void  exit_from_block() noexcept;
-
-  sc_symbol&  push(const sc_type_info&  ti, std::u16string_view  name, sc_symbol_attribute  attr) noexcept;
-
 public:
-  sc_context() noexcept{}
+  sc_context(const sc_package&  pk) noexcept: m_package(&pk){}
 
-  sc_context(const syntax_branch&  br) noexcept{assign(br);}
-  sc_context&  operator=(const syntax_branch&  br) noexcept{return assign(br);}
+  const sc_package&  package() const noexcept{return *m_package;}
 
-  sc_context&  assign(const syntax_branch&  br) noexcept;
-
-  int  stack_size() const noexcept;
-
-  const sc_function*  find_function(std::u16string_view  name) const noexcept;
-  const sc_constant*  find_constant(std::u16string_view  name) const noexcept;
-  const sc_symbol*      find_symbol(std::u16string_view  name) const noexcept;
-
-  sc_reference  get_reference(std::u16string_view  name) noexcept;
-
-  void  add_constant(std::u16string_view  name, sc_value&&  v) noexcept{m_constant_list.emplace_back(name,std::move(v));}
+  sc_reference  get_reference(const sc_symbol&  sym) const noexcept;
 
   sc_accessor  accessor(int64_t  address) noexcept{return sc_accessor(&m_memory[address]);}
 
@@ -618,7 +509,6 @@ public:
   void  halt() noexcept{m_halt_flag = true;}
   bool  is_halted() const noexcept{return m_halt_flag;}
 
-  void  print() const noexcept;
 
 };
 

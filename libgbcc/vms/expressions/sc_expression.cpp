@@ -20,6 +20,7 @@ assign(const sc_expression&   rhs) noexcept
 
         switch(m_kind)
         {
+      case(kind::operand): new(&m_data) sc_operand(rhs.m_data.o);break;
       case(kind::unary ): m_data.unop  = new sc_unary_operation(*rhs.m_data.unop);break;
       case(kind::binary): m_data.binop = new sc_binary_operation(*rhs.m_data.binop);break;
         }
@@ -42,6 +43,7 @@ assign(sc_expression&&  rhs) noexcept
 
         switch(m_kind)
         {
+      case(kind::operand): new(&m_data) sc_operand(std::move(rhs.m_data.o));break;
       case(kind::unary ): m_data.unop  = rhs.m_data.unop ;break;
       case(kind::binary): m_data.binop = rhs.m_data.binop;break;
         }
@@ -88,7 +90,7 @@ assign(sc_value  v, const sc_type_info&  ti) noexcept
 
   m_kind = kind::unary;
 
-  m_data.unop = new sc_unary_operation(v,ti);
+  m_data.unop = new sc_unary_operation(sc_expression(sc_operand(v,ti)));
 
   return *this;
 }
@@ -100,9 +102,9 @@ assign(const sc_operand&  o) noexcept
 {
   clear();
 
-  m_kind = kind::unary;
+  m_kind = kind::operand;
 
-  m_data.unop = new sc_unary_operation(o);
+  new(&m_data) sc_operand(o);
 
   return *this;
 }
@@ -114,9 +116,9 @@ assign(sc_operand&&  o) noexcept
 {
   clear();
 
-  m_kind = kind::unary;
+  m_kind = kind::operand;
 
-  m_data.unop = new sc_unary_operation(std::move(o));
+  new(&m_data) sc_operand(std::move(o));
 
   return *this;
 }
@@ -128,6 +130,7 @@ clear() noexcept
 {
     switch(m_kind)
     {
+  case(kind::operand): std::destroy_at(&m_data.o);break;
   case(kind::unary ): std::destroy_at(m_data.unop);break;
   case(kind::binary): std::destroy_at(m_data.binop);break;
     }
@@ -137,18 +140,48 @@ clear() noexcept
 }
 
 
-sc_type_info
+void
 sc_expression::
-type_info(const sc_context&  ctx) const noexcept
+fix(const sc_function&  fn) noexcept
 {
     switch(m_kind)
     {
-  case(kind::unary ): return m_data.unop->type_info(ctx);break;
-  case(kind::binary): return m_data.binop->type_info(ctx);break;
+  case(kind::operand): m_data.o.fix(fn);break;
+  case(kind::unary ): m_data.unop->fix(fn);break;
+  case(kind::binary): m_data.binop->fix(fn);break;
+    }
+}
+
+
+const sc_type_info&
+sc_expression::
+type_info() const noexcept
+{
+    switch(m_kind)
+    {
+  case(kind::operand): return m_data.o.type_info();break;
+  case(kind::unary  ): return m_data.unop->type_info();break;
+  case(kind::binary ): return m_data.binop->type_info();break;
     }
 
 
-  return sc_type_info();
+  return sc_undef_ti;
+}
+
+
+const sc_value*
+sc_expression::
+constant_value() const noexcept
+{
+    switch(m_kind)
+    {
+  case(kind::operand): return m_data.o.constant_value();break;
+  case(kind::unary  ): return m_data.unop->constant_value();break;
+  case(kind::binary ): return m_data.binop->constant_value();break;
+    }
+
+
+  return nullptr;
 }
 
 
@@ -158,6 +191,7 @@ evaluate(sc_context&  ctx) const noexcept
 {
     switch(m_kind)
     {
+  case(kind::operand): return m_data.o.evaluate(ctx);break;
   case(kind::unary ): return m_data.unop->evaluate(ctx);break;
   case(kind::binary): return m_data.binop->evaluate(ctx);break;
     }
@@ -173,8 +207,9 @@ print() const noexcept
 {
     switch(m_kind)
     {
-  case(kind::unary ): m_data.unop->print();break;
-  case(kind::binary): m_data.binop->print();break;
+  case(kind::operand): m_data.o.print();break;
+  case(kind::unary  ): m_data.unop->print();break;
+  case(kind::binary ): m_data.binop->print();break;
     }
 }
 

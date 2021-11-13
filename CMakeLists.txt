@@ -3,6 +3,7 @@ project(gbcc)
 
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
+set(SLOW TRUE)
 
 
 find_program(CCACHE_FOUND ccache)

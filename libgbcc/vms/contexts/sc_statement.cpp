@@ -10,44 +10,6 @@ namespace gbcc{
 
 sc_statement&
 sc_statement::
-assign(const sc_statement&   rhs) noexcept
-{
-    if(this != &rhs)
-    {
-      clear();
-
-      m_kind = rhs.m_kind;
-
-        switch(m_kind)
-        {
-      case(kind::return_   ):
-      case(kind::case_     ):
-      case(kind::expression): new(&m_data) sc_expression(rhs.m_data.expr);break;
-
-      case(kind::goto_):
-      case(kind::label): new(&m_data) std::u16string(rhs.m_data.s);break;
-
-      case(kind::while_ ):
-      case(kind::switch_): new(&m_data) sc_conditional_block(rhs.m_data.cblk);break;
-
-      case(kind::if_): new(&m_data) sc_conditional_block_list(rhs.m_data.cblkls);break;
-
-      case(kind::var   ):
-      case(kind::const_): new(&m_data) sc_var(rhs.m_data.var);break;
-
-      case(kind::for_): break;
-
-      case(kind::block): new(&m_data) sc_block(rhs.m_data.blk);break;
-        }
-    }
-
-
-  return *this;
-}
-
-
-sc_statement&
-sc_statement::
 assign(sc_statement&&  rhs) noexcept
 {
     if(this != &rhs)
@@ -65,17 +27,11 @@ assign(sc_statement&&  rhs) noexcept
       case(kind::goto_):
       case(kind::label): new(&m_data) std::u16string(std::move(rhs.m_data.s));break;
 
-      case(kind::while_ ):
-      case(kind::switch_): new(&m_data) sc_conditional_block(std::move(rhs.m_data.cblk));break;
+      case(kind::if_): new(&m_data) sc_block_list(std::move(rhs.m_data.blkls));break;
 
-      case(kind::if_): new(&m_data) sc_conditional_block_list(std::move(rhs.m_data.cblkls));break;
+      case(kind::var   ): new(&m_data) sc_variable(std::move(rhs.m_data.var));break;
 
-      case(kind::var   ):
-      case(kind::const_): new(&m_data) sc_var(std::move(rhs.m_data.var));break;
-
-      case(kind::for_): break;
-
-      case(kind::block): new(&m_data) sc_block(std::move(rhs.m_data.blk));break;
+      case(kind::block): new(&m_data) std::unique_ptr<sc_block>(std::move(rhs.m_data.blk));break;
         }
     }
 
@@ -152,55 +108,27 @@ assign(sc_goto&&  gt) noexcept
 
 sc_statement&
 sc_statement::
-assign(sc_if&&  i) noexcept
+assign(std::unique_ptr<sc_block>&&  blk) noexcept
+{
+  clear();
+
+  m_kind = kind::block;
+
+  new(&m_data) std::unique_ptr<sc_block>(std::move(blk));
+
+  return *this;
+}
+
+
+sc_statement&
+sc_statement::
+assign(sc_block_list&&  blkls) noexcept
 {
   clear();
 
   m_kind = kind::if_;
 
-  new(&m_data) sc_conditional_block_list(*i);
-
-  return *this;
-}
-
-
-sc_statement&
-sc_statement::
-assign(sc_while&&  wh) noexcept
-{
-  clear();
-
-  m_kind = kind::while_;
-
-  new(&m_data) sc_conditional_block(std::move(wh));
-
-  return *this;
-}
-
-
-sc_statement&
-sc_statement::
-assign(sc_for&&  fo) noexcept
-{
-  clear();
-
-  m_kind = kind::for_;
-
-  new(&m_data) sc_conditional_block(std::move(fo));
-
-  return *this;
-}
-
-
-sc_statement&
-sc_statement::
-assign(sc_switch&&  sw) noexcept
-{
-  clear();
-
-  m_kind = kind::switch_;
-
-  new(&m_data) sc_conditional_block(std::move(sw));
+  new(&m_data) sc_block_list(std::move(blkls));
 
   return *this;
 }
@@ -234,41 +162,13 @@ assign(sc_default&&  de) noexcept
 
 sc_statement&
 sc_statement::
-assign(sc_block&&  blk) noexcept
-{
-  clear();
-
-  m_kind = kind::block;
-
-  new(&m_data) sc_block(std::move(blk));
-
-  return *this;
-}
-
-
-sc_statement&
-sc_statement::
-assign(sc_var&&  v) noexcept
+assign(sc_variable&&  v) noexcept
 {
   clear();
 
   m_kind = kind::var;
 
-  new(&m_data) sc_var(std::move(v));
-
-  return *this;
-}
-
-
-sc_statement&
-sc_statement::
-assign(sc_const&&  c) noexcept
-{
-  clear();
-
-  m_kind = kind::const_;
-
-  new(&m_data) sc_var(std::move(c));
+  new(&m_data) sc_variable(std::move(v));
 
   return *this;
 }
@@ -307,15 +207,9 @@ clear() noexcept
   case(kind::goto_):
   case(kind::label): std::destroy_at(&m_data.s);break;
 
-  case(kind::while_ ):
-  case(kind::switch_): std::destroy_at(&m_data.cblk);break;
+  case(kind::if_): std::destroy_at(&m_data.blkls);break;
 
-  case(kind::if_): std::destroy_at(&m_data.cblkls);break;
-
-  case(kind::var   ):
-  case(kind::const_): std::destroy_at(&m_data.var);break;
-
-  case(kind::for_): break;
+  case(kind::var): std::destroy_at(&m_data.var);break;
 
   case(kind::block): std::destroy_at(&m_data.blk);break;
     }
@@ -325,26 +219,46 @@ clear() noexcept
 }
 
 
+void
+sc_statement::
+fix(const sc_function&  fn) noexcept
+{
+    switch(m_kind)
+    {
+  case(kind::return_   ):
+  case(kind::case_     ):
+  case(kind::expression): m_data.expr.fix(fn);break;
+
+  case(kind::if_):
+        for(auto&  blk: m_data.blkls)
+        {
+          blk->fix(fn);
+        }
+      break;
+  case(kind::var):
+      m_data.var.expression().fix(fn);
+      break;
+  case(kind::block): m_data.blk->fix(fn); break;
+    }
+}
+
+
+
+
 namespace{
 void
-print_if(const sc_conditional_block_list&  ls, int  depth) noexcept
+print_if(const sc_block_list&  ls, int  depth) noexcept
 {
   auto      it = ls.begin();
   auto  end_it = ls.end();
 
-  it++->print(depth);
+  (*it++)->print(depth);
 
     while(it != end_it)
     {
       printf(" else ");
 
-        if(it->expression())
-        {
-          printf("if");
-        }
-
-
-      it++->print(depth);
+      (*it++)->print(depth);
     }
 }
 }
@@ -367,37 +281,19 @@ print(int  depth) const noexcept
   case(kind::goto_): printf("goto ");  gbcc::print(m_data.s);break;
   case(kind::label): gbcc::print(m_data.s);  printf(":");break;
 
-  case(kind::while_ ): printf("while");   m_data.cblk.print(depth);break;
-  case(kind::switch_): printf("switch");  m_data.cblk.print(depth);break;
-
   case(kind::if_):
-      printf("if ");
-
-      print_if(m_data.cblkls,depth);
+      print_if(m_data.blkls,depth);
       break;
   case(kind::var):
       printf("var  ");
-      gbcc::print(m_data.var.name());
+      gbcc::print(m_data.var.symbol().name());
       printf(" = ");
-      m_data.var.type_info().print();
+      m_data.var.symbol().type_info().print();
       printf("(");
       m_data.var.expression().print();
       printf(")");
       break;
-  case(kind::const_):
-      printf("const  ");
-      gbcc::print(m_data.var.name());
-      printf(" = ");
-      m_data.var.type_info().print();
-      printf("(");
-      m_data.var.expression().print();
-      printf(")");
-      break;
-  case(kind::for_):
-      printf("for(");
-      printf(")");
-      break;
-  case(kind::block): m_data.blk.print(); break;
+  case(kind::block): m_data.blk->print(); break;
     }
 }
 

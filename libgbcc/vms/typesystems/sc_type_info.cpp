@@ -258,6 +258,7 @@ print() const noexcept
   case('o'): m_data.un->print();break;
   case('e'): m_data.en->print();break;
   case('F'): m_data.sig->print();break;
+  default: printf("null");
     }
 }
 

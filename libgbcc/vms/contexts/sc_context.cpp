@@ -8,174 +8,15 @@ namespace gbcc{
 
 
 
-sc_context::frame::
-frame(const sc_function&  fn, int64_t  memsize) noexcept
-{
-  m_function = &fn;
-
-  m_memory_size = memsize;
-
-  m_running_stack.emplace_back(fn.block());
-}
-
-
-
-
-sc_context&
-sc_context::
-assign(const syntax_branch&  br) noexcept
-{
-    for(auto&  e: br)
-    {
-        if(e.is_branch(u"top_element"))
-        {
-            for(auto&  ee: e.branch())
-            {
-                if(ee.is_branch(u"function_declaration"))
-                {
-                  auto  n = m_function_list.size();
-
-                  m_function_list.emplace_back(construct_function(ee.branch())).set_entry_number(n);
-                }
-
-              else
-                if(ee.is_branch(u"var_statement"))
-                {
-                  auto  v = construct_var(ee.branch());
-
-                  push(v.type_info(),v.name(),sc_symbol_attribute()).add_expression(std::move(v.expression()));
-                }
-
-              else
-                if(ee.is_branch(u"const_statement"))
-                {
-                  auto  c = construct_const(ee.branch());
-
-                  push(c.type_info(),c.name(),sc_symbol_attribute().add_const()).add_expression(std::move(c.expression()));
-                }
-            }
-        }
-    }
-
-
-  reset();
-
-  return *this;
-}
-
-
-sc_symbol&
-sc_context::
-push(const sc_type_info&  ti, std::u16string_view  name, sc_symbol_attribute  attr) noexcept
-{
-  return m_symbol_list.emplace_back(name,sc_type_info(ti),stack_size(),attr);
-}
-
-
-int
-sc_context::
-stack_size() const noexcept
-{
-  return m_symbol_list.size()? m_symbol_list.back().next_offset():32;
-}
-
-
-const sc_function*
-sc_context::
-find_function(std::u16string_view  name) const noexcept
-{
-    for(auto&  c: m_function_list)
-    {
-        if(c.name() == name)
-        {
-          return &c;
-        }
-    }
-
-
-  return nullptr;
-}
-
-
-const sc_constant*
-sc_context::
-find_constant(std::u16string_view  name) const noexcept
-{
-    for(auto&  c: m_constant_list)
-    {
-        if(c.name() == name)
-        {
-          return &c;
-        }
-    }
-
-
-  return nullptr;
-}
-
-
-const sc_symbol*
-sc_context::
-find_symbol(std::u16string_view  name) const noexcept
-{
-    if(m_frame_stack.size())
-    {
-        for(auto&  sym: m_frame_stack.back().m_function->symbol_list())
-        {
-            if(sym.name() == name)
-            {
-              return &sym;
-            }
-        }
-    }
-
-
-    for(auto&  sym: m_symbol_list)
-    {
-        if(sym.name() == name)
-        {
-          return &sym;
-        }
-    }
-
-
-  return nullptr;
-}
-
-
 sc_reference
 sc_context::
-get_reference(std::u16string_view  name) noexcept
+get_reference(const sc_symbol&  sym) const noexcept
 {
-  auto  sym = find_symbol(name);
+  int64_t  base = sym.attribute().has_temporary()?  m_fef_stack.back().previous_memory_size()
+                : 0
+                ;
 
-    if(sym)
-    {
-      int64_t  base = sym->attribute().has_temporary()?  m_frame_stack.back().m_memory_size
-                    : 0
-                    ;
-
-      return sc_reference(sym->type_info(),base+sym->offset());
-    }
-
-
-  auto  f = find_function(name);
-
-    if(f)
-    {
-      sc_type_info  ti(sc_signature(f->signature()));
-
-      return sc_reference(std::move(ti),f->entry_number());
-    }
-
-
-  printf("the symbol that named ");
-
-  gbcc::print(name);
-
-  printf(" is not found.\n");
-
-  return sc_reference();
+  return sc_reference(sym.type_info(),base+sym.offset());
 }
 
 
@@ -242,7 +83,7 @@ void
 sc_context::
 store(std::u16string_view  var_name, sc_value  v, const sc_type_info&  ti) noexcept
 {
-  auto  sym = find_symbol(var_name);
+  auto  sym = m_package->find_symbol(var_name);
 
     if(sym)
     {
@@ -255,7 +96,7 @@ void
 sc_context::
 store(const sc_symbol&  sym, sc_value  v, const sc_type_info&  ti) noexcept
 {
-  int64_t  base = sym.attribute().has_temporary()?  m_frame_stack.back().m_memory_size
+  int64_t  base = sym.attribute().has_temporary()?  m_fef_stack.back().previous_memory_size()
                  :0
                  ;
  
@@ -311,7 +152,7 @@ int
 sc_context::
 call(std::u16string_view  fn_name, const sc_expression_list&  args) noexcept
 {
-  auto  f = find_function(fn_name);
+  auto  f = m_package->find_function(fn_name);
 
     if(f)
     {
@@ -333,15 +174,15 @@ call(const sc_function&  fn, const sc_expression_list&  args) noexcept
 
     for(auto&  a: args)
     {
-      vals.emplace_back(a.evaluate(*this),a.type_info(*this));
+      vals.emplace_back(a.evaluate(*this),a.type_info());
     }
 
 
-  auto  n = m_frame_stack.size();
+  auto  n = m_fef_stack.size();
 
   auto  sz = m_memory.size();
 
-  m_frame_stack.emplace_back(fn,sz);
+  m_fef_stack.emplace_back(fn,sz);
 
   auto&  syms = fn.symbol_list();
 
@@ -371,7 +212,7 @@ int
 sc_context::
 call(int  entry_number, const sc_expression_list&  args) noexcept
 {
-  auto&  fn = m_function_list[entry_number];
+  auto&  fn = *m_package->function_list()[entry_number];
 
   return call(fn,args);
 }
@@ -379,33 +220,18 @@ call(int  entry_number, const sc_expression_list&  args) noexcept
 
 void
 sc_context::
-exit_from_block() noexcept
-{
-  auto&  r_stk = m_frame_stack.back().m_running_stack;
-
-  r_stk.pop_back();
-
-    if(r_stk.empty())
-    {
-      process_return();
-    }
-}
-
-
-void
-sc_context::
 reset() noexcept
 {
-  m_memory.resize(stack_size());
+  m_memory.resize(m_package->stack_size());
 
-  m_frame_stack.clear();
+  m_fef_stack.clear();
 
-    for(auto&  sym: m_symbol_list)
+    for(auto&  var: m_package->variable_list())
     {
-      auto  ti = sym.expression().type_info(*this);
-      auto   v = sym.expression().evaluate(*this);
+      auto&  ti = var.expression().type_info();
+      auto    v = var.expression().evaluate(*this);
 
-      store(sym,v,ti);
+      store(var.symbol(),v,ti);
     }
 }
 
@@ -414,48 +240,17 @@ void
 sc_context::
 step() noexcept
 {
-    if(m_frame_stack.size())
+    if(m_fef_stack.size())
     {
-      auto&  frm = m_frame_stack.back();
+      auto&  frm = m_fef_stack.back();
 
-      auto&  r_stk = frm.m_running_stack;
+      frm(*this,m_returned_value);
 
-      auto&  r = r_stk.back();
-
-        if(r.m_current == r.m_begin)
+        if(frm.is_returned())
         {
-          auto  cond = r.m_condition;
+          m_memory.resize(frm.previous_memory_size());
 
-            if(cond && *cond)
-            {
-              auto  v = cond->evaluate(*this);
-
-                if(!v.integer())
-                {
-                  exit_from_block();
-
-                  return;
-                }
-            }
-        }
-
-
-        if(r.m_current < r.m_end)
-        {
-          process(*r.m_current++);
-        }
-
-      else
-        {
-            if(r.m_condition)
-            {
-              r.m_current = r.m_begin;
-            }
-
-          else
-            {
-              exit_from_block();
-            }
+          m_fef_stack.pop_back();
         }
     }
 
@@ -470,38 +265,13 @@ const sc_value_with_type_info&
 sc_context::
 run(int  depth) noexcept
 {
-    while(m_frame_stack.size() > depth)
+    while(m_fef_stack.size() > depth)
     {
       step();
     }
 
 
   return m_returned_value;
-}
-
-
-void
-sc_context::
-print() const noexcept
-{
-    for(auto&  sym: m_symbol_list)
-    {
-      printf("var  ");
-
-      sym.print();
-
-      printf("\n");
-    }
-
-
-  printf("\n\n");
-
-    for(auto&  fn: m_function_list)
-    {
-      fn.print();
-
-      printf("\n");
-    }
 }
 
 
